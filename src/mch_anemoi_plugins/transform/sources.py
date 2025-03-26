@@ -13,10 +13,8 @@ from anemoi.datasets.create.sources.xarray_support.time import Time
 from anemoi.datasets.create.sources.xarray_support.variable import Variable
 from data_provider.default_provider import default_provider
 from data_provider.utils import read_file
-
+from mch_anemoi_plugins.helpers import reproject, assign_lonlat
 from pyproj import CRS
-from pyproj import Transformer
-from pyproj import Transformer
 
 
 def align_dates_with_freq(data: xr.DataArray, dates: List[datetime.datetime], freq: str = "5min") -> xr.DataArray:
@@ -34,23 +32,6 @@ def align_dates_with_freq(data: xr.DataArray, dates: List[datetime.datetime], fr
     ideal = pd.date_range(pd.to_datetime(dates[0]), pd.to_datetime(dates[-1]), freq=freq)
     data["forecast_reference_time"] = ideal
     return data
-
-
-def assign_lonlat(array: xr.Dataset, crs: str) -> xr.Dataset:
-    """
-    Assign longitude and latitude coordinates to the dataset.
-
-    Args:
-        array (xr.Dataset): Input dataset.
-        crs (str): Coordinate reference system.
-
-    Returns:
-        xr.Dataset: Dataset with assigned longitude and latitude coordinates.
-    """
-    xv, yv = np.meshgrid(array.x, array.y, indexing="ij")
-    transformer = Transformer.from_crs(crs, CRS.from_user_input("epsg:4326"), always_xy=True)
-    lon, lat = transformer.transform(xv, yv)
-    return array.assign_coords(longitude=(("x", "y"), lon), latitude=(("x", "y"), lat))
 
 
 class MCHVariable(Variable):
@@ -94,7 +75,7 @@ class MCHVariable(Variable):
         self.source = source
         self._metadata = {x.replace("variable", "param"): k for x, k in self._metadata.items()}
 
-    def __getitem__(self, i: int) -> 'MCHField':
+    def __getitem__(self, i: int) -> "MCHField":
         """
         Get item by index.
 
@@ -214,7 +195,13 @@ class MCHField(XArrayField):
 
 class MCHFieldList(XarrayFieldList):
     @classmethod
-    def from_xarray(cls, ds: xr.Dataset, flavour: Union[str, dict] = None, proj_string: str = None, source: str = "") -> 'MCHFieldList':
+    def from_xarray(
+        cls,
+        ds: xr.Dataset,
+        flavour: Union[str, dict] = None,
+        proj_string: str = None,
+        source: str = "",
+    ) -> "MCHFieldList":
         """
         Create MCHFieldList from xarray dataset.
 
@@ -310,7 +297,11 @@ def provide_to_fieldset(source: str):
                 expanded_kwargs[k] = read_file(v.removeprefix("$file:"))
         data = provider.provide(source, param, dates, **expanded_kwargs)
         crs = provider.get_crs(source)
-        time_dim = "time" if "time" in data.dims else "forecast_reference_time" if "forecast_reference_time" in data.dims else None
+        time_dim = (
+            "time"
+            if "time" in data.dims
+            else "forecast_reference_time" if "forecast_reference_time" in data.dims else None
+        )
         if time_dim is None:
             data = data.assign_coords(forecast_reference_time=dates)
         elif time_dim == "time":

@@ -3,9 +3,7 @@ name = "mch-anemoi-plugins"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.rst"
-authors = [
-    { name = "MeteoSwiss" }
-]
+authors = [{ name = "MeteoSwiss" }]
 requires-python = ">=3.12"
 dependencies = [
     "anemoi-datasets",
@@ -22,35 +20,34 @@ dependencies = [
     "rioxarray",
     "gridefix-process",
     "pyyaml",
-    "data-provider",
+    #"data-provider",
     "omegaconf>=2.3.0,<3",
     "cf-units>=3.2.0,<4",
-    "earthkit>=0.10.0"
+    "earthkit>=0.10.0",
 ]
 
 [project.scripts]
 mch-anemoi-plugins = "mch_anemoi_plugins:main"
 
 [project.entry-points."anemoi.datasets.sources"]
-cosmo1e = "mch_anemoi.sources:cosmo"
-inca = "mch_anemoi.sources:inca"
-iconCH1 = "mch_anemoi.sources:icon"
-kendaCH1 = "mch_anemoi.sources:kenda"
-radar = "mch_anemoi.sources:radar"
-station = "mch_anemoi.sources:station"
-satellite = "mch_anemoi.sources:satellite"
-dem = "mch_anemoi.sources:dem"
-geosatclim = "mch_anemoi.sources:geosatclim"
-opera = "mch_anemoi.sources:opera"
-eumetsat = "mch_anemoi.sources:eumetsat"
+cosmo1e = "mch_anemoi_plugins.transform.sources:cosmo"
+inca = "mch_anemoi_plugins.transform.sources:inca"
+iconCH1 = "mch_anemoi_plugins.transform.sources:icon"
+kendaCH1 = "mch_anemoi_plugins.transform.sources:kenda"
+radar = "mch_anemoi_plugins.transform.sources:radar"
+station = "mch_anemoi_plugins.transform.sources:station"
+satellite = "mch_anemoi_plugins.transform.sources:satellite"
+dem = "mch_anemoi_plugins.transform.sources:dem"
+opera = "mch_anemoi_plugins.transform.sources:opera"
+eumetsat = "mch_anemoi_plugins.transform.sources:eumetsat"
 
 [project.entry-points."anemoi.datasets.filters"]
-project = "mch_anemoi.filters:project"
-interp2res = "mch_anemoi.filters:interp2res"
-interp2grid = "mch_anemoi.filters:interp2grid"
-uv2dirspeed = "mch_anemoi.filters:uv2dirspeed"
-dirspeed2uv = "mch_anemoi.filters:dirspeed2uv"
-q2dewpoint = "mch_anemoi.filters:q2dewpoint"
+project = "mch_anemoi_plugins.transform.filters:project"
+interp2res = "mch_anemoi_plugins.transform.filters:interp2res"
+interp2grid = "mch_anemoi_plugins.transform.filters:interp2grid"
+uv2dirspeed = "mch_anemoi_plugins.transform.filters:uv2dirspeed"
+dirspeed2uv = "mch_anemoi_plugins.transform.filters:dirspeed2uv"
+q2dewpoint = "mch_anemoi_plugins.transform.filters:q2dewpoint"
 
 [build-system]
 requires = ["hatchling"]
@@ -66,7 +63,7 @@ dependencies = [
     "pytest-cov>=4.1.0,<5",
     "sphinx>=7.2.6,<8",
     "sphinx-autoapi>=3.0.0,<4",
-    "yapf>=0.40.2,<0.41"
+    "yapf>=0.40.2,<0.41",
 ]
 
 [tool.uv.sources]
@@ -74,13 +71,11 @@ anemoi-plugins = { git = "https://github.com/ecmwf/anemoi-plugins" }
 anemoi-datasets = { git = "https://github.com/ecmwf/anemoi-datasets" }
 anemoi-transform = { git = "https://github.com/ecmwf/anemoi-transform" }
 meteodatalab = { git = "https://github.com/MeteoSwiss/meteodata-lab" }
-data-provider = { git = "https://service.meteoswiss.ch/git/nowcasting/nowcastingnextgen/data-provider.git" }
-gridefix-process = { git = "https://service.meteoswiss.ch/git/nowcasting/nowcastingnextgen/gridefix-process.git" }
+#data-provider = { git = "https://service.meteoswiss.ch/git/nowcasting/nowcastingnextgen/data-provider.git" }
 
 [[tool.uv.index]]
 name = "pypi-mch"
 url = "https://service.meteoswiss.ch/nexus/repository/python-all/simple"
-default = true
 
 [[tool.uv.index]]
 name = "pypi-mch-publish"

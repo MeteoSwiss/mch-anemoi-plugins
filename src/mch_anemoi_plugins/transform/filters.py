@@ -7,23 +7,19 @@ from typing import Union
 import dask
 import dask.array as da
 import numpy as np
-import pandas as pd
 import xarray as xr
 from earthkit.data.core.fieldlist import Field
 from earthkit.data.indexing.fieldlist import FieldArray
 from earthkit.meteo import thermo
 from earthkit.meteo.wind.array import polar_to_xy, xy_to_polar
 from gridefix_process import grid_interp
-from gridefix_process.helpers import reproject
-from gridefix_process.timeseries import interptogranularity
 from pyproj import CRS
 from scipy.interpolate import NearestNDInterpolator
 from scipy.spatial import cKDTree
-
-from mch_anemoi_plugins.sources import MCHFieldList
+from mch_anemoi_plugins.helpers import reproject, assign_lonlat
+from mch_anemoi_plugins.transform.sources import MCHFieldList
 
 dask.config.set({"array.chunk-size": "256MiB"})
-
 
 def replace(instance, **kwargs):
     new_instance = copy(instance)
@@ -35,18 +31,14 @@ def replace(instance, **kwargs):
     return new_instance
 
 
-def assign_lonlat(array, crs):
-    xv, yv = np.meshgrid(array.x, array.y, indexing="ij")
-    lon, lat = reproject(xv, yv, crs, CRS.from_user_input("epsg:4326"))
-    return array.assign_coords(longitude=(("x", "y"), lon), latitude=(("x", "y"), lat))
-
-
 def interp2points(template, array, source_crs, target_crs):
     array = array.sortby(["x", "y"])
     meshx, meshy = np.meshgrid(template.x.data, template.y.data)
     flat_x, flat_y = meshx.flatten(), meshy.flatten()
     template_coords = da.stack([flat_x, flat_y], axis=1)
-    projected_x, projected_y = reproject(array.x.data, array.y.data, source_crs, target_crs)
+    projected_x, projected_y = reproject(
+        array.x.data, array.y.data, source_crs, target_crs
+    )
     data_coords = da.stack([projected_x, projected_y], axis=1)
     tree = cKDTree(data_coords)
     # Query the tree to find the nearest neighbors for the template coordinates
@@ -82,9 +74,9 @@ def _dirspeed2uv(
     if in_radians:
         wind_dir_data = np.rad2deg(wind_dir_data)
     u, v = polar_to_xy(array[wind_speed].data, wind_dir_data)
-    new_array = array.assign({u_component: (array.dims, u), v_component: (array.dims, v)}).drop_vars(
-        [wind_speed, wind_dir]
-    )
+    new_array = array.assign(
+        {u_component: (array.dims, u), v_component: (array.dims, v)}
+    ).drop_vars([wind_speed, wind_dir])
     return new_array
 
 
@@ -100,21 +92,27 @@ def _uv2dirspeed(
     magnitude, direction = xy_to_polar(array[u_component].data, array[v_component].data)
     if in_radians:
         direction = np.deg2rad(direction)
-    new_array = array.assign({wind_speed: (array.dims, magnitude), wind_dir: (array.dims, direction)}).drop_vars(
-        [u_component, v_component]
-    )
+    new_array = array.assign(
+        {wind_speed: (array.dims, magnitude), wind_dir: (array.dims, direction)}
+    ).drop_vars([u_component, v_component])
     return new_array
 
 
-def _interp2grid(array, example_field, template: Union[xr.Dataset, str], method="linear"):
+def _interp2grid(
+    array, example_field, template: Union[xr.Dataset, str], method="linear"
+):
     if isinstance(template, str) and template.startswith("$file:"):
         template = xr.open_zarr(template.removeprefix("$file:"))
     kenda_data = "cell" in array.dims
     if kenda_data:
         # too many points, so we have to reduce before reindexing using gridefix
-        array_reduced = interp2points(template, array, source_crs=example_field.crs, target_crs=template.crs)
+        array_reduced = interp2points(
+            template, array, source_crs=example_field.crs, target_crs=template.crs
+        )
         array = array_reduced.set_xindex(["x", "y"]).unstack()
-    ds_from_array = array.assign_attrs({"source": example_field.source}).assign_attrs({"crs": example_field.crs})
+    ds_from_array = array.assign_attrs({"source": example_field.source}).assign_attrs(
+        {"crs": example_field.crs}
+    )
     interpolated_array = (
         grid_interp.interp2grid(ds_from_array, dst_grid=template, method=method)
         .sortby("y", ascending=True)
@@ -161,8 +159,14 @@ def _interp2res(array, example_field, resolution: Union[str, int], target_crs=No
     )[0][0]
     template = xr.Dataset(
         coords=dict(
-            x=(np.arange(_xmin, _xmax, resolution_in_crs_units, dtype=np.float64) + resolution_in_crs_units / 2),
-            y=(np.arange(_ymin, _ymax, resolution_in_crs_units, dtype=np.float64) + resolution_in_crs_units / 2),
+            x=(
+                np.arange(_xmin, _xmax, resolution_in_crs_units, dtype=np.float64)
+                + resolution_in_crs_units / 2
+            ),
+            y=(
+                np.arange(_ymin, _ymax, resolution_in_crs_units, dtype=np.float64)
+                + resolution_in_crs_units / 2
+            ),
         ),
         attrs={"crs": target_crs},
     )
@@ -171,7 +175,9 @@ def _interp2res(array, example_field, resolution: Union[str, int], target_crs=No
         # too many points, so we have to reduce before reindexing using gridefix
         array_reduced = interp2points(template, array, example_field.crs, target_crs)
         array = array_reduced.set_xindex(["x", "y"]).unstack()
-    ds_from_array = array.assign_attrs({"source": example_field.source}).assign_attrs({"crs": target_crs})
+    ds_from_array = array.assign_attrs({"source": example_field.source}).assign_attrs(
+        {"crs": target_crs}
+    )
     interpolated_array = (
         grid_interp.interp2grid(ds_from_array, dst_grid=template, method="linear")
         .sortby("y", ascending=True)
@@ -192,25 +198,30 @@ def _project(array, example_field, target_crs):
     station_data = "station" in xindexes or "cell" in xindexes
     if station_data:
         new_x, new_y = reproject(array.x, array.y, src_CRS, dest_CRS)
-        new_array = array.reset_coords(["x", "y"], drop=True).assign_coords(x=(xindexes, new_x), y=(xindexes, new_y))
+        new_array = array.reset_coords(["x", "y"], drop=True).assign_coords(
+            x=(xindexes, new_x), y=(xindexes, new_y)
+        )
     else:
         xv, yv = np.meshgrid(array.x, array.y, indexing="ij")
         new_x, new_y = reproject(xv, yv, src_CRS, dest_CRS)
         # basically interpolate to nearest point
         new_x_list = new_x[:, 0]
         new_y_list = new_y[0]
-        new_array = array.reset_index(xindexes).assign_coords(x=new_x_list, y=new_y_list)
+        new_array = array.reset_index(xindexes).assign_coords(
+            x=new_x_list, y=new_y_list
+        )
     new_array.attrs["crs"] = target_crs
     return new_array
 
 
 def xarray_filter(op):
-
     def anemoi_op(ctx, field_array: FieldArray, *args, **kwargs):
         print(f"Applying {op.__name__.replace('_', '')} filter")
         example_field = field_array[0]
         concat = []
-        for d in np.unique([field.metadata("forecast_reference_time") for field in field_array]):
+        for d in np.unique(
+            [field.metadata("forecast_reference_time") for field in field_array]
+        ):
             concat.append(
                 xr.merge(
                     [
@@ -225,14 +236,15 @@ def xarray_filter(op):
         res = op(array=all_fields, *args, **kwargs)
         target_crs = kwargs.get("target_crs", example_field.crs)
         print(f"Finished applying {op.__name__.replace('_', '')} filter")
-        fieldlist = MCHFieldList.from_xarray(res, proj_string=target_crs, source=example_field.source)
+        fieldlist = MCHFieldList.from_xarray(
+            res, proj_string=target_crs, source=example_field.source
+        )
         return fieldlist
 
     return anemoi_op
 
 
 def anemoi_filter(op):
-
     def anemoi_op(ctx, field_array: FieldArray, *args, **kwargs):
         print(f"Applying {op.__name__.replace('_', '')} filter")
         transformed_fields = []
