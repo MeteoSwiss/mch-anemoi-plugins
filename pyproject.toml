@@ -13,6 +13,7 @@ dependencies = [
     "anemoi-transform",
 ]
 
+
 [project.optional-dependencies]
 grib = [
     "eccodes>=2.40.0",
@@ -38,3 +39,6 @@ dev = [
     "pre-commit>=4.2.0",
     "pytest>=8.3.5",
 ]
+
+[project.entry-points."anemoi.transform.filters"]
+example = "mch_anemoi_plugins.transform.filter:ExamplePlugin"
