@@ -12,18 +12,9 @@ ecbuild --version
 
 # sync (aka install) the virtual environment
 echo "🔧 Syncing python virtual environment with uv..."
-uv sync #&> /dev/null
+uv sync --all-extras #&> /dev/null
 source .venv/bin/activate
 
-# set up eccodes environment variables
-clone_dir=./.venv/share/eccodes-cosmo-resources
-if [ ! -d "$clone_dir" ]; then
-    echo "🔧 Cloning eccodes-cosmo-resources..."
-    git clone git@github.com:COSMO-ORG/eccodes-cosmo-resources -b v2.36.0.3 $clone_dir &> /dev/null
-    # git clone git@github.com:COSMO-ORG/eccodes-cosmo-resources -b v2.35.0.1dm1 $clone_dir &> /dev/null
-else
-    echo "✅ eccodes-cosmo-resources already setup."
-fi
 
 export ECCODES_DEFINITION_PATH=$(realpath $clone_dir)/definitions
 echo "🔧 ECCODES_DEFINITION_PATH set to ${clone_dir}/definitions"
