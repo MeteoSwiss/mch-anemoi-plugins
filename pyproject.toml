@@ -11,6 +11,11 @@ dependencies = [
     "anemoi-datasets",
     "anemoi-plugins",
     "anemoi-transform",
+]
+
+[project.optional-dependencies]
+grib = [
+    "eccodes>=2.40.0",
     "meteodatalab",
 ]
 
@@ -25,10 +30,11 @@ build-backend = "hatchling.build"
 anemoi-plugins = { git = "https://github.com/ecmwf/anemoi-plugins" }
 anemoi-datasets = { git = "https://github.com/ecmwf/anemoi-datasets" }
 anemoi-transform = { git = "https://github.com/ecmwf/anemoi-transform" }
-meteodatalab = { git = "https://github.com/MeteoSwiss/meteodata-lab" }
+meteodatalab = { git = "https://github.com/MeteoSwiss/meteodata-lab", branch = "updated-dependencies"}
 
 [dependency-groups]
 dev = [
+    "ipdb",
     "pre-commit>=4.2.0",
     "pytest>=8.3.5",
 ]
