@@ -13,7 +13,7 @@ import meteodatalab.operators.destagger as dsg
 
 def _destagger_field(field: Field, dim: str) -> xr.DataArray:
     buffer = _FieldBuffer(_is_ensemble(field))
-    buffer.load(field)
+    buffer.load(field, None)
     da = buffer.to_xarray()
 
     # TODO: this hardcoding is not ideal

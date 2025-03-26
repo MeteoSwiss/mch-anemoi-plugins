@@ -42,3 +42,4 @@ dev = [
 
 [project.entry-points."anemoi.transform.filters"]
 example = "mch_anemoi_plugins.transform.filter:ExamplePlugin"
+destagger = "mch_anemoi_plugins.transform.filter:HorizontalDestagger"
