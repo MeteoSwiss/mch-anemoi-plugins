@@ -73,6 +73,9 @@ anemoi-transform = { git = "https://github.com/ecmwf/anemoi-transform" }
 meteodatalab = { git = "https://github.com/MeteoSwiss/meteodata-lab" }
 #data-provider = { git = "https://service.meteoswiss.ch/git/nowcasting/nowcastingnextgen/data-provider.git" }
 
+[tool.uv]
+constraint-dependencies = ["eckitlib!=1.28.5"] # eckitlib 1.28.5 has wheels on macos only
+
 [[tool.uv.index]]
 name = "pypi-mch"
 url = "https://service.meteoswiss.ch/nexus/repository/python-all/simple"

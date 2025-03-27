@@ -1,6 +1,7 @@
 =============================
-mch-anemoi
+mch-anemoi-plugins
 =============================
+Collection of [anemoi plugins](https://anemoi.readthedocs.io/projects/plugins/en/latest/index.html#) used at MeteoSwiss.
 
 The **mch-anemoi** package bridges:
 
@@ -13,12 +14,11 @@ The **mch-anemoi** package bridges:
         - satellite: ``satellite`` MSG variables from local cache;
         - radar: ``radar`` data from local cache.
 
-    - base processing functions inspired/inherited from those available for xarray objects in the **gridefix-process** package to *anemoi.filters*.
+    - base processing functions inspired/inherited from those available for xarray objects in the **gridefix-process** or **meteodatalab** package to *anemoi.filters*.
 
-        - ``crop`` image within given ``bbox``;
         - ``project`` to a target ``crs``;
-        - ``interpolate`` to reach a target ``resolution``;
-        - ``match_grid`` to match a target ``template`` grid.
+        - ``interp2res`` to reach a target ``resolution``;
+        - ``interp2grid`` to match a target ``template`` grid.
 
 In the above description, text ``formatted like this`` are either sources, filters or arguments passed to filters that can be written in a yaml configuration file for creating a dataset using **anemoi-datasets**.
 
