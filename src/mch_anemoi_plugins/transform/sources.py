@@ -17,7 +17,9 @@ from mch_anemoi_plugins.helpers import reproject, assign_lonlat
 from pyproj import CRS
 
 
-def align_dates_with_freq(data: xr.DataArray, dates: List[datetime.datetime], freq: str = "5min") -> xr.DataArray:
+def align_dates_with_freq(
+    data: xr.DataArray, dates: List[datetime.datetime], freq: str = "5min"
+) -> xr.DataArray:
     """
     Align dates in the data array with a specified frequency.
 
@@ -29,7 +31,9 @@ def align_dates_with_freq(data: xr.DataArray, dates: List[datetime.datetime], fr
     Returns:
         xr.DataArray: Data array with aligned dates.
     """
-    ideal = pd.date_range(pd.to_datetime(dates[0]), pd.to_datetime(dates[-1]), freq=freq)
+    ideal = pd.date_range(
+        pd.to_datetime(dates[0]), pd.to_datetime(dates[-1]), freq=freq
+    )
     data["forecast_reference_time"] = ideal
     return data
 
@@ -73,7 +77,9 @@ class MCHVariable(Variable):
         )
         self.proj_string = proj_string
         self.source = source
-        self._metadata = {x.replace("variable", "param"): k for x, k in self._metadata.items()}
+        self._metadata = {
+            x.replace("variable", "param"): k for x, k in self._metadata.items()
+        }
 
     def __getitem__(self, i: int) -> "MCHField":
         """
@@ -125,7 +131,9 @@ class MCHField(XArrayField):
         station_or_cell = ["cell", "station"]
         data_coords = [c for c in self.selection.coords]
         data_dims = [c for c in self.selection.dims]
-        return np.intersect1d(std_grid_coords + station_or_cell, data_coords + data_dims)
+        return np.intersect1d(
+            std_grid_coords + station_or_cell, data_coords + data_dims
+        )
 
     @property
     def not_grid_dim(self) -> List[str]:
@@ -150,7 +158,9 @@ class MCHField(XArrayField):
         else:
             valid_crs = CRS.from_user_input(self.crs)
         valid_crs = CRS.from_user_input("epsg:2056")
-        minimal = self.selection.isel({d: 0 for d in self.not_grid_dim}).rio.write_crs(valid_crs)
+        minimal = self.selection.isel({d: 0 for d in self.not_grid_dim}).rio.write_crs(
+            valid_crs
+        )
         if minimal.rio.crs.is_projected:
             minx = minimal.x.to_numpy()
             minx.sort()
@@ -161,7 +171,14 @@ class MCHField(XArrayField):
             res_m = np.array([minx, miny]) * minimal.rio.crs.units_factor[1]
         else:
             res_deg = np.array(minimal.rio.resolution())
-            res_m = res_deg * np.diff(reproject([0, 1], [0, 0], valid_crs, CRS.from_user_input("epsg:2056")))[0][0]
+            res_m = (
+                res_deg
+                * np.diff(
+                    reproject(
+                        [0, 1], [0, 0], valid_crs, CRS.from_user_input("epsg:2056")
+                    )
+                )[0][0]
+            )
         res_km = np.round(res_m / 1e3, 0)
         return f"{tuple(v.item() for v in res_km)[0]}km"
 
@@ -300,7 +317,9 @@ def provide_to_fieldset(source: str):
         time_dim = (
             "time"
             if "time" in data.dims
-            else "forecast_reference_time" if "forecast_reference_time" in data.dims else None
+            else "forecast_reference_time"
+            if "forecast_reference_time" in data.dims
+            else None
         )
         if time_dim is None:
             data = data.assign_coords(forecast_reference_time=dates)
@@ -314,7 +333,9 @@ def provide_to_fieldset(source: str):
             data = assign_lonlat(data, crs)
         if len(dates) == 1:
             first_hour_day = [d for d in data[time_dim].dt.round("1d").to_numpy()]
-            data = data.reindex_like(xr.Dataset(coords={time_dim: first_hour_day}), method="nearest")
+            data = data.reindex_like(
+                xr.Dataset(coords={time_dim: first_hour_day}), method="nearest"
+            )
         potentially_misleading_coords = [
             "forecast_reference_time",
             "realization",
@@ -335,7 +356,9 @@ def provide_to_fieldset(source: str):
         data["forecast_reference_time"].attrs.update(standard_name="time")
         if "x" in data.dims:
             data = data.transpose("forecast_reference_time", "number", "x", "y")
-        xarray_fieldlist = MCHFieldList.from_xarray(data, proj_string=crs, source=source)
+        xarray_fieldlist = MCHFieldList.from_xarray(
+            data, proj_string=crs, source=source
+        )
         return xarray_fieldlist
 
     return anemoi_entrypoint

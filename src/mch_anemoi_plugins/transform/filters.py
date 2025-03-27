@@ -21,6 +21,7 @@ from mch_anemoi_plugins.transform.sources import MCHFieldList
 
 dask.config.set({"array.chunk-size": "256MiB"})
 
+
 def replace(instance, **kwargs):
     new_instance = copy(instance)
     for k, v in kwargs.items():
