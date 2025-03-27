@@ -9,33 +9,34 @@ dependencies = [
     "anemoi-datasets",
     "anemoi-plugins",
     "anemoi-transform",
-]
-
-
-[project.optional-dependencies]
-grib = [
-    "eccodes>=2.40.0",
-    "meteodatalab",
     "pyproj",
     "pandas",
     "xarray",
-    "gridefix-read",
     "zarr",
     "geopandas",
     "dask",
     "rioxarray",
-    "gridefix-process",
     "pyyaml",
-    #"data-provider",
+     #"data-provider",
     "omegaconf>=2.3.0,<3",
     "cf-units>=3.2.0,<4",
     "earthkit>=0.10.0",
+    "eccodes>=2.40.0",
+]
+
+[project.optional-dependencies]
+gridefix = [
+    "gridefix-read",
+    "gridefix-process",
+]
+grib = [
+    "meteodatalab",
 ]
 
 [project.scripts]
 mch-anemoi-plugins = "mch_anemoi_plugins:main"
 
-[project.entry-points."anemoi.datasets.sources"]
+[project.entry-points."anemoi.transform.sources"]
 cosmo1e = "mch_anemoi_plugins.transform.sources:cosmo"
 inca = "mch_anemoi_plugins.transform.sources:inca"
 iconCH1 = "mch_anemoi_plugins.transform.sources:icon"
@@ -47,13 +48,14 @@ dem = "mch_anemoi_plugins.transform.sources:dem"
 opera = "mch_anemoi_plugins.transform.sources:opera"
 eumetsat = "mch_anemoi_plugins.transform.sources:eumetsat"
 
-[project.entry-points."anemoi.datasets.filters"]
+[project.entry-points."anemoi.transform.filters"]
 project = "mch_anemoi_plugins.transform.filters:project"
 interp2res = "mch_anemoi_plugins.transform.filters:interp2res"
 interp2grid = "mch_anemoi_plugins.transform.filters:interp2grid"
 uv2dirspeed = "mch_anemoi_plugins.transform.filters:uv2dirspeed"
 dirspeed2uv = "mch_anemoi_plugins.transform.filters:dirspeed2uv"
 q2dewpoint = "mch_anemoi_plugins.transform.filters:q2dewpoint"
+destagger = "mch_anemoi_plugins.transform.filters:HorizontalDestagger"
 
 [build-system]
 requires = ["hatchling"]
@@ -78,13 +80,43 @@ anemoi-datasets = { git = "https://github.com/ecmwf/anemoi-datasets" }
 anemoi-transform = { git = "https://github.com/ecmwf/anemoi-transform" }
 meteodatalab = { git = "https://github.com/MeteoSwiss/meteodata-lab", branch = "updated-dependencies"}
 
-[dependency-groups]
-dev = [
-    "ipdb",
-    "pre-commit>=4.2.0",
-    "pytest>=8.3.5",
+[[tool.uv.index]]
+name = "pypi-mch"
+url = "https://service.meteoswiss.ch/nexus/repository/python-all/simple"
+
+[[tool.uv.index]]
+name = "pypi-mch-publish"
+url = "https://service.meteoswiss.ch/nexus/repository/python-mch/"
+
+[tool.hatch.build.targets.sdist]
+include = ["HISTORY.rst"]
+
+[tool.hatch.build.targets.wheel]
+include = ["HISTORY.rst"]
+
+[tool.yapf]
+based_on_style = "pep8"
+column_limit = "120"
+
+[tool.pylint.master]
+disable = [
+    'C0114', # missing-module-docstring
+    'C0115', # missing-class-docstring
+    'C0116', # missing-function-docstring
+    'W0511', # fix me or to-do comments are already covered by SonarQube
 ]
 
-[project.entry-points."anemoi.transform.filters"]
-example = "mch_anemoi_plugins.transform.filter:ExamplePlugin"
-destagger = "mch_anemoi_plugins.transform.filter:HorizontalDestagger"
+[tool.pylint.format]
+# Maximum number of lines in a module.
+max-line-length = 120
+
+[tool.pylint.design]
+# Minimum number of public methods for a class (see R0903).
+min-public-methods = 0
+
+[tool.mypy]
+ignore_missing_imports = true
+disallow_untyped_defs = true
+
+[tool.coverage.run]
+omit = ["test/**", "doc/**"]

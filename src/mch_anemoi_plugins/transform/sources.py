@@ -1,6 +1,9 @@
 import datetime
 import json
-from typing import List, Union
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -13,8 +16,10 @@ from anemoi.datasets.create.sources.xarray_support.time import Time
 from anemoi.datasets.create.sources.xarray_support.variable import Variable
 from data_provider.default_provider import default_provider
 from data_provider.utils import read_file
-from mch_anemoi_plugins.helpers import reproject, assign_lonlat
 from pyproj import CRS
+
+from mch_anemoi_plugins.helpers import assign_lonlat
+from mch_anemoi_plugins.helpers import reproject
 
 
 def align_dates_with_freq(
@@ -39,32 +44,49 @@ def align_dates_with_freq(
 
 
 class MCHVariable(Variable):
+    """
+    A variable container for MCH datasets.
+
+    MCHVariable wraps an xarray DataArray along with metadata, coordinate information,
+    grid information, and temporal context. It also stores an optional projection string
+    and source identifier for the variable. This class is used to facilitate data processing
+    for MCH datasets by providing methods to index into the variable data and to apply
+    consistent metadata transformations.
+
+    Attributes:
+        proj_string (Union[str, None]): Projection string associated with the variable.
+        source (str): Identifier of the data source.
+    """
+
     def __init__(
         self,
         *,
         ds: xr.Dataset,
         var: xr.DataArray,
-        coordinates: List,
+        coordinates: List[Any],
         grid: xr.Dataset,
         time: Time,
-        metadata: dict,
-        proj_string: str = None,
+        metadata: Dict[Any, Any],
+        proj_string: Union[str, None] = None,
         source: str = "",
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """
         Initialize MCHVariable.
 
         Args:
-            ds (xr.Dataset): Dataset.
+            ds (xr.Dataset): Input dataset.
             var (xr.DataArray): Variable data array.
-            coordinates (List): List of coordinates.
+            coordinates (List[Any]): List of coordinates.
             grid (xr.Dataset): Grid dataset.
             time (Time): Time object.
-            metadata (dict): Metadata dictionary.
-            proj_string (str, optional): Projection string. Default is None.
+            metadata (Dict[Any, Any]): Metadata dictionary.
+            proj_string (Union[str, None], optional): Projection string. Default is None.
             source (str, optional): Source string. Default is "".
-            **kwargs: Additional keyword arguments.
+            **kwargs (Any): Additional keyword arguments.
+
+        Returns:
+            None
         """
         super().__init__(
             ds=ds,
@@ -75,8 +97,8 @@ class MCHVariable(Variable):
             metadata=metadata,
             **kwargs,
         )
-        self.proj_string = proj_string
-        self.source = source
+        self.proj_string: Union[str, None] = proj_string
+        self.source: str = source
         self._metadata = {
             x.replace("variable", "param"): k for x, k in self._metadata.items()
         }
@@ -89,7 +111,7 @@ class MCHVariable(Variable):
             i (int): Index.
 
         Returns:
-            MCHField: MCHField object.
+            MCHField: MCHField object corresponding to the index.
         """
         if i >= self.length:
             raise IndexError(i)
@@ -102,30 +124,24 @@ class MCHField(XArrayField):
     @property
     def source(self) -> str:
         """
-        Get source.
-
-        Returns:
-            str: Source string.
+        Get the source string for this field.
         """
         return self.owner.source
 
     @property
     def proj_string(self) -> str:
         """
-        Get projection string.
-
-        Returns:
-            str: Projection string.
+        Retrieve the projection string set in the owner.
         """
         return self.owner.proj_string
 
     @property
     def grid_coords(self) -> np.ndarray:
         """
-        Get grid coordinates.
+        Determine grid coordinates from the data array's dimensions and coordinates.
 
-        Returns:
-            np.ndarray: Array of grid coordinates.
+        It finds an intersection between standard grid coordinates (x, y, longitude, latitude)
+        and typical station/cell identifiers.
         """
         std_grid_coords = ["x", "y", "longitude", "latitude"]
         station_or_cell = ["cell", "station"]
@@ -138,20 +154,17 @@ class MCHField(XArrayField):
     @property
     def not_grid_dim(self) -> List[str]:
         """
-        Get non-grid dimensions.
-
-        Returns:
-            List[str]: List of non-grid dimensions.
+        Identify dimensions that are not part of the grid.
         """
         return [d for d in self.selection.dims if d not in self.grid_coords]
 
     @property
     def resolution(self) -> str:
         """
-        Get resolution.
+        Compute the resolution based on the minimal spacing along grid dimensions.
 
-        Returns:
-            str: Resolution string.
+        For projected CRS, it computes the minimal difference in x and y (converted to meters)
+        and rounds it to a kilometer value.
         """
         if "crs" in self.selection.attrs:
             valid_crs = CRS.from_user_input(self.selection.attrs["crs"])
@@ -185,20 +198,19 @@ class MCHField(XArrayField):
     @property
     def crs(self) -> str:
         """
-        Get coordinate reference system.
+        Retrieve the coordinate reference system (CRS) string.
 
-        Returns:
-            str: CRS string.
+        This is derived from the projection string.
+
         """
         return self.proj_string
 
     @property
     def bounding_box(self) -> tuple:
         """
-        Get bounding box.
+        Compute the bounding box of the field as (min_x, min_y, max_x, max_y).
 
-        Returns:
-            tuple: Bounding box coordinates.
+        It selects the minimal values along non-grid dimensions and calculates the extent.
         """
         minimal = self.selection.isel({d: 0 for d in self.not_grid_dim})
         bbox = (
@@ -215,33 +227,33 @@ class MCHFieldList(XarrayFieldList):
     def from_xarray(
         cls,
         ds: xr.Dataset,
-        flavour: Union[str, dict] = None,
-        proj_string: str = None,
+        flavour: Union[str, dict, None] = None,
+        proj_string: Union[str, None] = None,
         source: str = "",
     ) -> "MCHFieldList":
         """
-        Create MCHFieldList from xarray dataset.
+        Create an MCHFieldList from an xarray dataset.
 
         Args:
-            ds (xr.Dataset): Input dataset.
-            flavour (Union[str, dict], optional): Flavour configuration. Default is None.
-            proj_string (str, optional): Projection string. Default is None.
+            ds (xr.Dataset): Input xarray dataset.
+            flavour (Union[str, dict, None], optional): Flavour configuration. Default is None.
+            proj_string (Union[str, None], optional): Projection string. Default is None.
             source (str, optional): Source string. Default is "".
 
         Returns:
-            MCHFieldList: MCHFieldList object.
+            MCHFieldList: An instance of MCHFieldList populated with variables from the dataset.
         """
         variables = []
         if isinstance(flavour, str):
             with open(flavour) as f:
-                if flavour.endswith(".yaml") or flavour.endswith(".yml"):
+                if flavour.endswith((".yaml", ".yml")):
                     flavour = yaml.safe_load(f)
                 else:
                     flavour = json.load(f)
         guess = CoordinateGuesser.from_flavour(ds, flavour)
         skip = set()
 
-        def _skip_attr(v, attr_name):
+        def _skip_attr(v: Any, attr_name: str) -> None:
             attr_val = getattr(v, attr_name, "")
             if isinstance(attr_val, str):
                 skip.update(attr_val.split(" "))
@@ -278,35 +290,36 @@ class MCHFieldList(XarrayFieldList):
         return cls(ds, variables)
 
 
-def provide_to_fieldset(source: str):
+def provide_to_fieldset(source: str) -> Any:
     """
-    Provide data to fieldset.
+    Provide data to a fieldset.
 
     Args:
         source (str): Source string.
 
     Returns:
-        function: Anemoi entrypoint function.
+        function: An entrypoint function that accepts context, dates, and retriever parameters,
+                  returning an MCHFieldList.
     """
     provider = default_provider()
 
     def anemoi_entrypoint(
-        context,
+        context: Any,
         dates: List[datetime.datetime],
         param: Union[List[str], None] = None,
-        **retriever_kwargs,
+        **retriever_kwargs: Any,
     ) -> MCHFieldList:
         """
         Anemoi entrypoint function.
 
         Args:
-            context: Context object.
+            context (Any): Context object.
             dates (List[datetime.datetime]): List of dates.
             param (Union[List[str], None], optional): List of parameters. Default is None.
-            **retriever_kwargs: Additional retriever keyword arguments.
+            **retriever_kwargs (Any): Additional retriever keyword arguments.
 
         Returns:
-            MCHFieldList: MCHFieldList object.
+            MCHFieldList: Field list created from the provided data.
         """
         expanded_kwargs = retriever_kwargs.copy()
         for k, v in retriever_kwargs.items():

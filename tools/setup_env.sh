@@ -28,7 +28,7 @@ for version in "${TEMPLATES[@]}"; do
 done
 
 
-    
+
 # set up dev environment variables
 export PYTHONBREAKPOINT="ipdb.set_trace"
 export FDB_ROOT=/scratch/mch/trajond/fdb-root-realtime
@@ -38,8 +38,5 @@ export FDB5_CONFIG_FILE=/scratch/mch/trajond/fdb-realtime-lcm/realtime_config.ya
 export FDB5_DIR=/scratch/mch/trajond/spack-view
 export GRIB_DEFINITION_PATH=/scratch/mch/trajond/eccodes-cosmo-resources/definitions:/scratch/mch/trajond/eccodes/definitions
 
-echo 
+echo
 echo "✅ Environment ready!"
-
-
-

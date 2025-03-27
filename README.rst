@@ -26,4 +26,4 @@ Variables available for each source listed above are listed `on the confluence p
 
 
 The objective of this package is to use the **anemoi-datasets** package with *custom filters* and *internal mch sources*.
-It should handle configurations looking like the file **anemoi_config.yaml**, even though this specific example should fail when we try to create the dataset with anemoi because station data and COSMO-1E data don't have the same time or spatial granularity. 
+It should handle configurations looking like the file **anemoi_config.yaml**, even though this specific example should fail when we try to create the dataset with anemoi because station data and COSMO-1E data don't have the same time or spatial granularity.
