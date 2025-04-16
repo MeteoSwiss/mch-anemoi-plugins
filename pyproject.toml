@@ -46,12 +46,12 @@ opera = "mch_anemoi_plugins.transform.sources:opera"
 eumetsat = "mch_anemoi_plugins.transform.sources:eumetsat"
 
 [project.entry-points."anemoi.transform.filters"]
-project = "mch_anemoi_plugins.transform.filters:project"
-interp2res = "mch_anemoi_plugins.transform.filters:interp2res"
-interp2grid = "mch_anemoi_plugins.transform.filters:interp2grid"
-uv2dirspeed = "mch_anemoi_plugins.transform.filters:uv2dirspeed"
-dirspeed2uv = "mch_anemoi_plugins.transform.filters:dirspeed2uv"
-q2dewpoint = "mch_anemoi_plugins.transform.filters:q2dewpoint"
+project = "mch_anemoi_plugins.transform.filters:Project"
+interp2res = "mch_anemoi_plugins.transform.filters:Interp2Res"
+interp2grid = "mch_anemoi_plugins.transform.filters:Interp2Grid"
+uv2dirspeed = "mch_anemoi_plugins.transform.filters:UV2Dirspeed"
+dirspeed2uv = "mch_anemoi_plugins.transform.filters:Dirspeed2UV"
+q2dewpoint = "mch_anemoi_plugins.transform.filters:Q2DewpointFilter"
 destagger = "mch_anemoi_plugins.transform.filters:HorizontalDestagger"
 
 [build-system]
@@ -98,10 +98,15 @@ column_limit = "120"
 
 [tool.pylint.master]
 disable = [
+    'R0913', # too many arguments
+    'R0917', # too many positional arguments
+    'C0415', # import outside toplevel
+    'C0414', # explicit reexport
     'C0114', # missing-module-docstring
     'C0115', # missing-class-docstring
     'C0116', # missing-function-docstring
     'W0511', # fix me or to-do comments are already covered by SonarQube
+    'C0414', # useless-import-alias
 ]
 
 [tool.pylint.format]

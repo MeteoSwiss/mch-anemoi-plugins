@@ -296,7 +296,7 @@ class BaseXarrayFilter(Filter):
 # --- Plugin filter classes ---
 
 
-class Q2DewpointFilter(BaseXarrayFilter):
+class Q2Dewpoint(BaseXarrayFilter):
     """Compute dewpoint from specific humidity and pressure."""
 
     def __init__(self, q: str = "QV_2M", sp: str = "SP", dewpoint: str = "TD_2M"):
@@ -308,7 +308,7 @@ class Q2DewpointFilter(BaseXarrayFilter):
         return _q2dewpoint(ds, q=self.q, sp=self.sp, dewpoint=self.dewpoint)
 
 
-class Dirspeed2UVFilter(BaseXarrayFilter):
+class Dirspeed2UV(BaseXarrayFilter):
     """Convert wind speed/direction to U/V components."""
 
     def __init__(
@@ -336,7 +336,7 @@ class Dirspeed2UVFilter(BaseXarrayFilter):
         )
 
 
-class UV2DirspeedFilter(BaseXarrayFilter):
+class UV2Dirspeed(BaseXarrayFilter):
     """Convert U/V components to wind speed/direction."""
 
     def __init__(
@@ -364,7 +364,7 @@ class UV2DirspeedFilter(BaseXarrayFilter):
         )
 
 
-class Interp2GridFilter(BaseXarrayFilter):
+class Interp2Grid(BaseXarrayFilter):
     """Interpolate fields to a target grid."""
 
     def __init__(self, template: Union[xr.Dataset, str], method: str = "linear"):
@@ -387,7 +387,7 @@ class InterpNAFilter(BaseXarrayFilter):
         return _interp_na(ds, self.param)
 
 
-class Interp2ResFilter(BaseXarrayFilter):
+class Interp2Res(BaseXarrayFilter):
     """Interpolate fields to a target resolution."""
 
     def __init__(self, resolution: Union[str, int], target_crs: str = None):
@@ -399,7 +399,8 @@ class Interp2ResFilter(BaseXarrayFilter):
             ds, example_field, resolution=self.resolution, target_crs=self.target_crs
         )
 
-class ProjectFilter(BaseXarrayFilter):
+
+class Project(BaseXarrayFilter):
     """Project fields to a target coordinate reference system."""
 
     def __init__(self, target_crs: str):

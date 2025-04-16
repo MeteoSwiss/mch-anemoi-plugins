@@ -301,6 +301,7 @@ def provide_to_fieldset(source: str) -> Any:
     """
     from data_provider.default_provider import default_provider
     from data_provider.utils import read_file
+
     provider = default_provider()
 
     def anemoi_entrypoint(
@@ -340,7 +341,7 @@ def provide_to_fieldset(source: str) -> Any:
         else:
             time_dim = None
 
-        # Select data based on the time dimension 
+        # Select data based on the time dimension
         # or if forcing assign a time coordinate.
         if time_dim is not None:
             data = data.sel({time_dim: dates}, method="nearest")
@@ -356,12 +357,17 @@ def provide_to_fieldset(source: str) -> Any:
         if len(dates) == 1:
             first_hour_day = [d for d in data[time_dim].dt.round("1d").to_numpy()]
             data = data.reindex_like(
-                xr.Dataset(coords={time_dim: first_hour_day}),
-                method="nearest"
+                xr.Dataset(coords={time_dim: first_hour_day}), method="nearest"
             )
 
         # Drop coordinates that may mislead the dataset guesser if they are not dimensions.
-        for coord in ["forecast_reference_time", "realization", "step", "surface_altitude", "land_area_fraction"]:
+        for coord in [
+            "forecast_reference_time",
+            "realization",
+            "step",
+            "surface_altitude",
+            "land_area_fraction",
+        ]:
             if coord in data.coords and coord not in data.dims:
                 data = data.drop(coord)
 
