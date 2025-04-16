@@ -1,11 +1,9 @@
-from anemoi.transform.filters import filter_registry
-from numpy.testing import assert_array_equal
-
 import earthkit.data as ekd
-
+from anemoi.transform.filters import filter_registry
 from meteodatalab import data_source
 from meteodatalab import grib_decoder
 from meteodatalab.operators.destagger import destagger
+from numpy.testing import assert_array_equal
 
 from mch_anemoi_plugins.transform.filter import HorizontalDestagger
 
