@@ -51,7 +51,7 @@ interp2res = "mch_anemoi_plugins.transform.filters:Interp2Res"
 interp2grid = "mch_anemoi_plugins.transform.filters:Interp2Grid"
 uv2dirspeed = "mch_anemoi_plugins.transform.filters:UV2Dirspeed"
 dirspeed2uv = "mch_anemoi_plugins.transform.filters:Dirspeed2UV"
-q2dewpoint = "mch_anemoi_plugins.transform.filters:Q2DewpointFilter"
+q2dewpoint = "mch_anemoi_plugins.transform.filters:Q2Dewpoint"
 destagger = "mch_anemoi_plugins.transform.filters:HorizontalDestagger"
 
 [build-system]
