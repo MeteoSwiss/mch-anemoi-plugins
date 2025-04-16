@@ -17,7 +17,6 @@ dependencies = [
     "dask",
     "rioxarray",
     "pyyaml",
-     #"data-provider",
     "omegaconf>=2.3.0,<3",
     "cf-units>=3.2.0,<4",
     "earthkit>=0.10.0",
@@ -32,15 +31,13 @@ gridefix = [
 grib = [
     "meteodatalab",
 ]
+observations = ["data-provider"]
 
 [project.scripts]
 mch-anemoi-plugins = "mch_anemoi_plugins:main"
 
 [project.entry-points."anemoi.transform.sources"]
-cosmo1e = "mch_anemoi_plugins.transform.sources:cosmo"
 inca = "mch_anemoi_plugins.transform.sources:inca"
-iconCH1 = "mch_anemoi_plugins.transform.sources:icon"
-kendaCH1 = "mch_anemoi_plugins.transform.sources:kenda"
 radar = "mch_anemoi_plugins.transform.sources:radar"
 station = "mch_anemoi_plugins.transform.sources:station"
 satellite = "mch_anemoi_plugins.transform.sources:satellite"
@@ -79,6 +76,7 @@ anemoi-plugins = { git = "https://github.com/ecmwf/anemoi-plugins" }
 anemoi-datasets = { git = "https://github.com/ecmwf/anemoi-datasets" }
 anemoi-transform = { git = "https://github.com/ecmwf/anemoi-transform" }
 meteodatalab = { git = "https://github.com/MeteoSwiss/meteodata-lab", branch = "updated-dependencies"}
+data-provider = {git = "https://service.meteoswiss.ch/git/nowcasting/pronos/data-provider.git"}
 
 [[tool.uv.index]]
 name = "pypi-mch"

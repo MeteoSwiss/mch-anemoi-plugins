@@ -14,8 +14,6 @@ from anemoi.datasets.create.sources.xarray_support.fieldlist import XarrayFieldL
 from anemoi.datasets.create.sources.xarray_support.flavour import CoordinateGuesser
 from anemoi.datasets.create.sources.xarray_support.time import Time
 from anemoi.datasets.create.sources.xarray_support.variable import Variable
-from data_provider.default_provider import default_provider
-from data_provider.utils import read_file
 from pyproj import CRS
 
 from mch_anemoi_plugins.helpers import assign_lonlat
@@ -301,6 +299,8 @@ def provide_to_fieldset(source: str) -> Any:
         function: An entrypoint function that accepts context, dates, and retriever parameters,
                   returning an MCHFieldList.
     """
+    from data_provider.default_provider import default_provider
+    from data_provider.utils import read_file
     provider = default_provider()
 
     def anemoi_entrypoint(
@@ -326,47 +326,61 @@ def provide_to_fieldset(source: str) -> Any:
             if isinstance(v, str) and v.startswith("$file:"):
                 expanded_kwargs[k] = read_file(v.removeprefix("$file:"))
         data = provider.provide(source, param, dates, **expanded_kwargs)
+
+        # Get the CRS from the provider and adjust to the source ('through') provided.
         crs = provider.get_crs(source)
-        time_dim = (
-            "time"
-            if "time" in data.dims
-            else "forecast_reference_time"
-            if "forecast_reference_time" in data.dims
-            else None
-        )
-        if time_dim is None:
+        if isinstance(crs, dict) and "through" in expanded_kwargs:
+            crs = crs[expanded_kwargs["through"]]
+
+        # Determine the time dimension
+        if "time" in data.dims:
+            time_dim = "time"
+        elif "forecast_reference_time" in data.dims:
+            time_dim = "forecast_reference_time"
+        else:
+            time_dim = None
+
+        # Select data based on the time dimension 
+        # or if forcing assign a time coordinate.
+        if time_dim is not None:
+            data = data.sel({time_dim: dates}, method="nearest")
+        else:
             data = data.assign_coords(forecast_reference_time=dates)
-        elif time_dim == "time":
-            data = data.rename({time_dim: "forecast_reference_time"})
-        time_dim = "forecast_reference_time"
-        data = data.sel({time_dim: dates}, method="nearest")
-        if crs is None:
-            crs = "epsg:2056"
+            time_dim = "forecast_reference_time"
+
+        # Ensure latitude and longitude coordinates are available.
         if not ("longitude" in data.coords and "latitude" in data.coords):
             data = assign_lonlat(data, crs)
+
+        # If only one date is provided, reindex using the relevant dateime (default by anemoi-dataset is to use the midnight value, not always available).
         if len(dates) == 1:
             first_hour_day = [d for d in data[time_dim].dt.round("1d").to_numpy()]
             data = data.reindex_like(
-                xr.Dataset(coords={time_dim: first_hour_day}), method="nearest"
+                xr.Dataset(coords={time_dim: first_hour_day}),
+                method="nearest"
             )
-        potentially_misleading_coords = [
-            "forecast_reference_time",
-            "realization",
-            "step",
-            "surface_altitude",
-            "land_area_fraction",
-        ]
-        for n in potentially_misleading_coords:
-            if n in data.coords and n not in data.dims:
-                data = data.drop(n)
+
+        # Drop coordinates that may mislead the dataset guesser if they are not dimensions.
+        for coord in ["forecast_reference_time", "realization", "step", "surface_altitude", "land_area_fraction"]:
+            if coord in data.coords and coord not in data.dims:
+                data = data.drop(coord)
+
+        # Update the 'lead_time' attribute if the dimension exists.
         if "lead_time" in data.dims:
             data["lead_time"].attrs.update(standard_name="forecast_period")
+
+        # Ensure that the 'number' dimension exists.
         if "number" not in data.dims:
             data = data.expand_dims(number=[0])
+
+        # Reindex the 'forecast_reference_time' coordinate with ISO-formatted dates.
         isodates = [pd.to_datetime(d).isoformat() for d in dates]
-        x = xr.Dataset(coords=dict(forecast_reference_time=isodates))
-        data = data.reindex_like(x, method="bfill")
+        time_ds = xr.Dataset(coords={"forecast_reference_time": isodates})
+        data = data.rename({time_dim: "forecast_reference_time"})
+        data = data.reindex_like(time_ds, method="bfill")
         data["forecast_reference_time"].attrs.update(standard_name="time")
+
+        # If spatial dimensions are present, transpose the data into a standard order.
         if "x" in data.dims:
             data = data.transpose("forecast_reference_time", "number", "x", "y")
         xarray_fieldlist = MCHFieldList.from_xarray(
@@ -377,13 +391,10 @@ def provide_to_fieldset(source: str) -> Any:
     return anemoi_entrypoint
 
 
-cosmo = provide_to_fieldset("COSMO-1E")
 radar = provide_to_fieldset("RADAR")
-icon = provide_to_fieldset("ICON-CH1-EPS")
 inca = provide_to_fieldset("INCA")
 station = provide_to_fieldset("SURFACE")
 dem = provide_to_fieldset("NASADEM")
 satellite = provide_to_fieldset("SATELLITE")
-kenda = provide_to_fieldset("KENDA-CH1")
 geosatclim = provide_to_fieldset("GEOSATCLIM")
 opera = provide_to_fieldset("OPERA")

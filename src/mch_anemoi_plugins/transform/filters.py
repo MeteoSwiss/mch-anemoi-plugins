@@ -399,7 +399,6 @@ class Interp2ResFilter(BaseXarrayFilter):
             ds, example_field, resolution=self.resolution, target_crs=self.target_crs
         )
 
-
 class ProjectFilter(BaseXarrayFilter):
     """Project fields to a target coordinate reference system."""
 
