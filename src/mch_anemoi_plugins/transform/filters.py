@@ -235,7 +235,6 @@ def _destagger_field(field: Field, dim: str) -> xr.DataArray:
 class HorizontalDestagger(Filter):
     """A filter to destagger fields using meteodata-lab."""
 
-    # @matching(select="param", forward=("param",))
     def __init__(self, param_dim: dict[str, str]):
         """Initialize the filter.
 
@@ -246,17 +245,6 @@ class HorizontalDestagger(Filter):
         """
         self.param_dim = param_dim
         self.param = list(param_dim.keys())
-
-    # def forward_transform(self, *fields: ekd.Field) -> tp.Iterator[Field]:
-    #     """Destagger the field."""
-
-    #     for field in fields:
-    #         param = field.metadata("param")
-    #         yield self.new_field_from_numpy(
-    #             _destagger_mdl(field, self.param_dim[param]).values,
-    #             template=field,
-    #             param=param
-    #         )
 
     def forward(self, data: ekd.FieldList) -> ekd.FieldList:
         result = []
@@ -272,6 +260,53 @@ class HorizontalDestagger(Filter):
 
     def backward_transform(self):
         raise NotImplementedError("HorizontalDestagger is not reversible.")
+
+
+def _clip_field_lateral_boundaries(
+    field: Field,
+    strip_idx: int,
+    idx: xr.DataArray,
+) -> xr.DataArray:
+    from meteodatalab.grib_decoder import _FieldBuffer
+    from meteodatalab.grib_decoder import _is_ensemble
+    from meteodatalab.operators.clip import clip_lateral_boundary_strip
+
+    buffer = _FieldBuffer(_is_ensemble(field))
+    buffer.load(field, None)
+    da = buffer.to_xarray()
+
+    return clip_lateral_boundary_strip(da, strip_idx, idx=idx)
+
+
+class ClipLateralBoundaries(Filter):
+    """A filter to clip fields to a specified lateral boundary."""
+
+    def __init__(self, strip_idx: int, gridfile: str):
+        """Initialize the filter.
+
+        Parameters
+        ----------
+        strip_idx:
+            The maximum lateral boundary strip index to keep.
+        gridfile:
+            The path to the grid descriptor file.
+        """
+        self.strip_idx = strip_idx
+        self.gridfile = gridfile
+        self.idx = xr.open_dataset(self.gridfile)["refin_c_ctrl"]
+
+    def forward(self, data: ekd.FieldList) -> ekd.FieldList:
+        result = []
+        for field in data:
+            _field = _clip_field_lateral_boundaries(field, self.strip_idx, self.idx)
+            field = new_field_from_numpy(
+                _field.values,
+                template=field,
+                uuidOfHGrid=_field.metadata.get("uuidOfHGrid"),
+                numberOfDataPoints=_field.metadata.get("numberOfDataPoints"),
+            )
+            result.append(field)
+        return new_fieldlist_from_list(result)
 
 
 # --- Base plugin class for xarray-based filters ---
