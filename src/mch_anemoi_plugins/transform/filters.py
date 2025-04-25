@@ -14,7 +14,7 @@ import xarray as xr
 from anemoi.transform.fields import new_field_from_numpy
 from anemoi.transform.fields import new_fieldlist_from_list
 from anemoi.transform.filter import Filter
-from earthkit.data.core import Field  # adjust as needed
+from earthkit.data import Field  # adjust as needed
 from earthkit.data.indexing.fieldlist import FieldArray  # adjust as needed
 from earthkit.meteo import thermo
 from earthkit.meteo.wind.array import polar_to_xy
@@ -131,7 +131,7 @@ def _interp2res(
 ) -> xr.Dataset:
     from gridefix_process import grid_interp
 
-    resolution_km = float(re.sub("[^0-9.\-]", "", str(resolution)))
+    resolution_km = float(re.sub(r"[^0-9.\-]", "", str(resolution)))
     target_crs = target_crs or example_field.crs
     _xmin, _ymin, _xmax, _ymax = example_field.bounding_box
     if target_crs != example_field.crs:
@@ -274,7 +274,7 @@ def _clip_field_lateral_boundaries(
     buffer = _FieldBuffer(_is_ensemble(field))
     buffer.load(field, None)
     da = buffer.to_xarray()
-
+    print(idx)
     return clip_lateral_boundary_strip(da, strip_idx, idx=idx)
 
 
@@ -293,7 +293,14 @@ class ClipLateralBoundaries(Filter):
         """
         self.strip_idx = strip_idx
         self.gridfile = gridfile
-        self.idx = xr.open_dataset(self.gridfile)["refin_c_ctrl"]
+
+        ds = xr.open_dataset(self.gridfile)
+        if "refin_c_ctrl" not in ds:
+            raise ValueError(
+                f"Grid descriptor file {self.gridfile} does not contain 'refin_c_ctrl' variable."
+            )
+
+        self.idx = ds["refin_c_ctrl"].assign_attrs(uuidOfHGrid=ds.attrs["uuidOfHGrid"])
 
     def forward(self, data: ekd.FieldList) -> ekd.FieldList:
         result = []
