@@ -20,7 +20,7 @@ gridefix = [
 grib = [
     "meteodata-lab>=0.3.0",
 ]
-observations = ["data-provider"]
+# observations = ["data-provider"]
 
 
 [project.entry-points."anemoi.transform.sources"]
@@ -64,7 +64,7 @@ anemoi-plugins = { git = "https://github.com/ecmwf/anemoi-plugins" }
 anemoi-datasets = { git = "https://github.com/ecmwf/anemoi-datasets" }
 anemoi-transform = { git = "https://github.com/ecmwf/anemoi-transform" }
 meteodata-lab = { git = "https://github.com/MeteoSwiss/meteodata-lab", branch="main"}
-data-provider = {git = "https://service.meteoswiss.ch/git/nowcasting/pronos/data-provider.git"}
+# data-provider = {git = "https://service.meteoswiss.ch/git/nowcasting/pronos/data-provider.git"}
 gridefix-read = { index = "pypi-mch"}
 gridefix-process = { index = "pypi-mch"}
 
