@@ -299,10 +299,6 @@ def provide_to_fieldset(source: str) -> Any:
         function: An entrypoint function that accepts context, dates, and retriever parameters,
                   returning an MCHFieldList.
     """
-    from data_provider.default_provider import default_provider
-    from data_provider.utils import read_file
-
-    provider = default_provider()
 
     def anemoi_entrypoint(
         context: Any,
@@ -322,6 +318,11 @@ def provide_to_fieldset(source: str) -> Any:
         Returns:
             MCHFieldList: Field list created from the provided data.
         """
+        from data_provider.default_provider import default_provider
+        from data_provider.utils import read_file
+
+        provider = default_provider()
+
         expanded_kwargs = retriever_kwargs.copy()
         for k, v in retriever_kwargs.items():
             if isinstance(v, str) and v.startswith("$file:"):
