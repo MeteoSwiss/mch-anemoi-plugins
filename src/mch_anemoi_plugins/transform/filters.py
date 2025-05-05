@@ -11,20 +11,17 @@ import dask.array as da
 import earthkit.data as ekd
 import numpy as np
 import xarray as xr
-from anemoi.transform.fields import new_field_from_numpy
-from anemoi.transform.fields import new_fieldlist_from_list
+from anemoi.transform.fields import new_field_from_numpy, new_fieldlist_from_list
 from anemoi.transform.filter import Filter
 from earthkit.data import Field  # adjust as needed
 from earthkit.data.indexing.fieldlist import FieldArray  # adjust as needed
 from earthkit.meteo import thermo
-from earthkit.meteo.wind.array import polar_to_xy
-from earthkit.meteo.wind.array import xy_to_polar
+from earthkit.meteo.wind.array import polar_to_xy, xy_to_polar
 from pyproj import CRS
 from scipy.interpolate import NearestNDInterpolator
 from scipy.spatial import cKDTree
 
-from mch_anemoi_plugins.helpers import assign_lonlat
-from mch_anemoi_plugins.helpers import reproject
+from mch_anemoi_plugins.helpers import assign_lonlat, reproject
 from mch_anemoi_plugins.transform.sources import MCHFieldList
 
 
@@ -218,8 +215,7 @@ def interp2points(
 
 def _destagger_field(field: Field, dim: str) -> xr.DataArray:
     import meteodatalab.operators.destagger as dsg
-    from meteodatalab.grib_decoder import _FieldBuffer
-    from meteodatalab.grib_decoder import _is_ensemble
+    from meteodatalab.grib_decoder import _FieldBuffer, _is_ensemble
 
     buffer = _FieldBuffer(_is_ensemble(field))
     buffer.load(field, None)
@@ -267,8 +263,7 @@ def _clip_field_lateral_boundaries(
     strip_idx: int,
     idx: xr.DataArray,
 ) -> xr.DataArray:
-    from meteodatalab.grib_decoder import _FieldBuffer
-    from meteodatalab.grib_decoder import _is_ensemble
+    from meteodatalab.grib_decoder import _FieldBuffer, _is_ensemble
     from meteodatalab.operators.clip import clip_lateral_boundary_strip
 
     buffer = _FieldBuffer(_is_ensemble(field))

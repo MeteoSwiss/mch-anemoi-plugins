@@ -2,11 +2,9 @@ from copy import copy
 
 import earthkit.data as ekd
 import numpy as np
-from anemoi.transform.fields import new_field_from_numpy
-from anemoi.transform.fields import new_fieldlist_from_list
+from anemoi.transform.fields import new_field_from_numpy, new_fieldlist_from_list
 from anemoi.transform.filter import Filter
-from pyproj import CRS
-from pyproj import Transformer
+from pyproj import CRS, Transformer
 
 
 def reproject(x_coords, y_coords, src_crs, dst_crs):

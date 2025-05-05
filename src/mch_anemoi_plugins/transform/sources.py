@@ -1,9 +1,6 @@
 import datetime
 import json
-from typing import Any
-from typing import Dict
-from typing import List
-from typing import Union
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -16,8 +13,7 @@ from anemoi.datasets.create.sources.xarray_support.time import Time
 from anemoi.datasets.create.sources.xarray_support.variable import Variable
 from pyproj import CRS
 
-from mch_anemoi_plugins.helpers import assign_lonlat
-from mch_anemoi_plugins.helpers import reproject
+from mch_anemoi_plugins.helpers import assign_lonlat, reproject
 
 
 def align_dates_with_freq(
