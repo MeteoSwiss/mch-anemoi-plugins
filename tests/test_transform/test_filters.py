@@ -1,13 +1,14 @@
 import earthkit.data as ekd
 from anemoi.transform.filters import filter_registry
-from meteodatalab import data_source
-from meteodatalab import grib_decoder
+from meteodatalab import data_source, grib_decoder
 from meteodatalab.operators.clip import clip_lateral_boundary_strip
 from meteodatalab.operators.destagger import destagger
 from numpy.testing import assert_array_equal
 
-from mch_anemoi_plugins.transform.filters import ClipLateralBoundaries
-from mch_anemoi_plugins.transform.filters import HorizontalDestagger
+from mch_anemoi_plugins.transform.filters import (
+    ClipLateralBoundaries,
+    HorizontalDestagger,
+)
 
 
 def test_clip_lateral_boundaries(data_dir):
