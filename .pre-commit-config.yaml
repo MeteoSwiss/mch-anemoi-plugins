@@ -12,47 +12,11 @@ repos:
       - id: no-commit-to-branch
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.2
+    rev: v0.11.4
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
-
-  - repo: local
-    hooks:
-      - id: clear-notebooks-output
-        name: clear-notebooks-output
-        files: tools/.*\.ipynb$
-        stages: [pre-commit]
-        language: python
-        entry: jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace
-        additional_dependencies: [jupyter]
-
-  - repo: https://github.com/pre-commit/pygrep-hooks
-    rev: v1.10.0
-    hooks:
-      - id: rst-backticks
-      - id: rst-directive-colons
-      - id: rst-inline-touching-normal
-      - id: python-use-type-annotations
-      - id: python-check-blanket-noqa
-      - id: python-no-log-warn
-
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        args:
-          - -l
-          - "120"
-          - --force-single-line-imports
-          - --profile
-          - black
-
-  - repo: https://github.com/sphinx-contrib/sphinx-lint
-    rev: v1.0.0
-    hooks:
-      - id: sphinx-lint
 
   - repo: https://github.com/jshwi/docsig
     rev: v0.65.0
