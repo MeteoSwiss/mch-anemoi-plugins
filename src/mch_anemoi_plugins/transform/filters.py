@@ -17,7 +17,6 @@ from earthkit.data import Field  # adjust as needed
 from earthkit.data.indexing.fieldlist import FieldArray  # adjust as needed
 from earthkit.meteo import thermo
 from earthkit.meteo.wind.array import polar_to_xy, xy_to_polar
-from pyproj import CRS
 from scipy.interpolate import NearestNDInterpolator
 from scipy.spatial import cKDTree
 
@@ -127,6 +126,7 @@ def _interp2res(
     array: xr.Dataset, example_field, resolution: Union[str, int], target_crs=None
 ) -> xr.Dataset:
     from gridefix_process import grid_interp
+    from pyproj import CRS
 
     resolution_km = float(re.sub(r"[^0-9.\-]", "", str(resolution)))
     target_crs = target_crs or example_field.crs
@@ -178,6 +178,8 @@ def _interp2res(
 
 
 def _project(array: xr.Dataset, example_field, target_crs) -> xr.Dataset:
+    from pyproj import CRS
+
     src_crs = CRS.from_user_input(example_field.crs)
     dest_crs = CRS.from_user_input(target_crs)
     if "station" in array.dims or "cell" in array.dims:

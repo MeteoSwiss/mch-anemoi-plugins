@@ -11,7 +11,6 @@ from anemoi.datasets.create.sources.xarray_support.fieldlist import XarrayFieldL
 from anemoi.datasets.create.sources.xarray_support.flavour import CoordinateGuesser
 from anemoi.datasets.create.sources.xarray_support.time import Time
 from anemoi.datasets.create.sources.xarray_support.variable import Variable
-from pyproj import CRS
 
 from mch_anemoi_plugins.helpers import assign_lonlat, reproject
 
@@ -160,6 +159,8 @@ class MCHField(XArrayField):
         For projected CRS, it computes the minimal difference in x and y (converted to meters)
         and rounds it to a kilometer value.
         """
+        from pyproj import CRS
+
         if "crs" in self.selection.attrs:
             valid_crs = CRS.from_user_input(self.selection.attrs["crs"])
         else:
