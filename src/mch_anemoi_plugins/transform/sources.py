@@ -1,9 +1,6 @@
 import datetime
 import json
-from typing import Any
-from typing import Dict
-from typing import List
-from typing import Union
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -14,10 +11,8 @@ from anemoi.datasets.create.sources.xarray_support.fieldlist import XarrayFieldL
 from anemoi.datasets.create.sources.xarray_support.flavour import CoordinateGuesser
 from anemoi.datasets.create.sources.xarray_support.time import Time
 from anemoi.datasets.create.sources.xarray_support.variable import Variable
-from pyproj import CRS
 
-from mch_anemoi_plugins.helpers import assign_lonlat
-from mch_anemoi_plugins.helpers import reproject
+from mch_anemoi_plugins.helpers import assign_lonlat, reproject
 
 
 def align_dates_with_freq(
@@ -164,6 +159,8 @@ class MCHField(XArrayField):
         For projected CRS, it computes the minimal difference in x and y (converted to meters)
         and rounds it to a kilometer value.
         """
+        from pyproj import CRS
+
         if "crs" in self.selection.attrs:
             valid_crs = CRS.from_user_input(self.selection.attrs["crs"])
         else:
@@ -299,10 +296,6 @@ def provide_to_fieldset(source: str) -> Any:
         function: An entrypoint function that accepts context, dates, and retriever parameters,
                   returning an MCHFieldList.
     """
-    from data_provider.default_provider import default_provider
-    from data_provider.utils import read_file
-
-    provider = default_provider()
 
     def anemoi_entrypoint(
         context: Any,
@@ -322,6 +315,11 @@ def provide_to_fieldset(source: str) -> Any:
         Returns:
             MCHFieldList: Field list created from the provided data.
         """
+        from data_provider.default_provider import default_provider
+        from data_provider.utils import read_file
+
+        provider = default_provider()
+
         expanded_kwargs = retriever_kwargs.copy()
         for k, v in retriever_kwargs.items():
             if isinstance(v, str) and v.startswith("$file:"):

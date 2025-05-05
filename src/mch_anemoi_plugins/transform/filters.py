@@ -11,20 +11,16 @@ import dask.array as da
 import earthkit.data as ekd
 import numpy as np
 import xarray as xr
-from anemoi.transform.fields import new_field_from_numpy
-from anemoi.transform.fields import new_fieldlist_from_list
+from anemoi.transform.fields import new_field_from_numpy, new_fieldlist_from_list
 from anemoi.transform.filter import Filter
 from earthkit.data import Field  # adjust as needed
 from earthkit.data.indexing.fieldlist import FieldArray  # adjust as needed
 from earthkit.meteo import thermo
-from earthkit.meteo.wind.array import polar_to_xy
-from earthkit.meteo.wind.array import xy_to_polar
-from pyproj import CRS
+from earthkit.meteo.wind.array import polar_to_xy, xy_to_polar
 from scipy.interpolate import NearestNDInterpolator
 from scipy.spatial import cKDTree
 
-from mch_anemoi_plugins.helpers import assign_lonlat
-from mch_anemoi_plugins.helpers import reproject
+from mch_anemoi_plugins.helpers import assign_lonlat, reproject
 from mch_anemoi_plugins.transform.sources import MCHFieldList
 
 
@@ -130,6 +126,7 @@ def _interp2res(
     array: xr.Dataset, example_field, resolution: Union[str, int], target_crs=None
 ) -> xr.Dataset:
     from gridefix_process import grid_interp
+    from pyproj import CRS
 
     resolution_km = float(re.sub(r"[^0-9.\-]", "", str(resolution)))
     target_crs = target_crs or example_field.crs
@@ -181,6 +178,8 @@ def _interp2res(
 
 
 def _project(array: xr.Dataset, example_field, target_crs) -> xr.Dataset:
+    from pyproj import CRS
+
     src_crs = CRS.from_user_input(example_field.crs)
     dest_crs = CRS.from_user_input(target_crs)
     if "station" in array.dims or "cell" in array.dims:
@@ -218,8 +217,7 @@ def interp2points(
 
 def _destagger_field(field: Field, dim: str) -> xr.DataArray:
     import meteodatalab.operators.destagger as dsg
-    from meteodatalab.grib_decoder import _FieldBuffer
-    from meteodatalab.grib_decoder import _is_ensemble
+    from meteodatalab.grib_decoder import _FieldBuffer, _is_ensemble
 
     buffer = _FieldBuffer(_is_ensemble(field))
     buffer.load(field, None)
@@ -267,8 +265,7 @@ def _clip_field_lateral_boundaries(
     strip_idx: int,
     idx: xr.DataArray,
 ) -> xr.DataArray:
-    from meteodatalab.grib_decoder import _FieldBuffer
-    from meteodatalab.grib_decoder import _is_ensemble
+    from meteodatalab.grib_decoder import _FieldBuffer, _is_ensemble
     from meteodatalab.operators.clip import clip_lateral_boundary_strip
 
     buffer = _FieldBuffer(_is_ensemble(field))
