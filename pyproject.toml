@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.rst"
 authors = [{ name = "MeteoSwiss" }]
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "anemoi-datasets",
     "anemoi-plugins",
@@ -20,30 +20,33 @@ dependencies = [
     "omegaconf>=2.3.0,<3",
     "cf-units>=3.2.0,<4",
     "earthkit>=0.10.0",
-    "eccodes>=2.40.0",
+    "eccodes>=2.38.0",
+    "data-provider",
+    "gridefix-process",
 ]
 
 [project.optional-dependencies]
 gridefix = [
     "gridefix-read",
-    "gridefix-process",
 ]
 grib = [
     "meteodatalab",
 ]
-observations = ["data-provider"]
 
 [project.scripts]
 mch-anemoi-plugins = "mch_anemoi_plugins:main"
 
-[project.entry-points."anemoi.transform.sources"]
-inca = "mch_anemoi_plugins.transform.sources:inca"
-radar = "mch_anemoi_plugins.transform.sources:radar"
-station = "mch_anemoi_plugins.transform.sources:station"
-satellite = "mch_anemoi_plugins.transform.sources:satellite"
-dem = "mch_anemoi_plugins.transform.sources:dem"
-opera = "mch_anemoi_plugins.transform.sources:opera"
-eumetsat = "mch_anemoi_plugins.transform.sources:eumetsat"
+[project.entry-points."anemoi.datasets.sources"]
+cosmo1e = "mch_anemoi.sources:COSMO1E"
+inca = "mch_anemoi.sources:INCA"
+iconCH1 = "mch_anemoi.sources:ICON_CH1_EPS"
+kendaCH1 = "mch_anemoi.sources:KENDA_CH1"
+station = "mch_anemoi.sources:SURFACE"
+radar = "mch_anemoi.sources:RADAR"
+satellite = "mch_anemoi.sources:SATELLITE"
+dem = "mch_anemoi.sources:NASADEM"
+geosatclim = "mch_anemoi.sources:GEOSATCLIM"
+opera = "mch_anemoi.sources:OPERA"
 
 [project.entry-points."anemoi.transform.filters"]
 project = "mch_anemoi_plugins.transform.filters:Project"
@@ -76,7 +79,7 @@ anemoi-plugins = { git = "https://github.com/ecmwf/anemoi-plugins" }
 anemoi-datasets = { git = "https://github.com/ecmwf/anemoi-datasets" }
 anemoi-transform = { git = "https://github.com/ecmwf/anemoi-transform" }
 meteodatalab = { git = "https://github.com/MeteoSwiss/meteodata-lab", branch = "updated-dependencies"}
-data-provider = {git = "https://service.meteoswiss.ch/git/nowcasting/pronos/data-provider.git"}
+data-provider = {git = "https://github.com/MeteoSwiss/data-provider.git"}
 
 [[tool.uv.index]]
 name = "pypi-mch"
@@ -85,12 +88,6 @@ url = "https://service.meteoswiss.ch/nexus/repository/python-all/simple"
 [[tool.uv.index]]
 name = "pypi-mch-publish"
 url = "https://service.meteoswiss.ch/nexus/repository/python-mch/"
-
-[tool.hatch.build.targets.sdist]
-include = ["HISTORY.rst"]
-
-[tool.hatch.build.targets.wheel]
-include = ["HISTORY.rst"]
 
 [tool.yapf]
 based_on_style = "pep8"
