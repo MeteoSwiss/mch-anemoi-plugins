@@ -23,6 +23,7 @@ dependencies = [
     "eccodes>=2.38.0",
     "data-provider",
     "gridefix-process",
+    "meteodatalab>=0.2.0",
 ]
 
 [project.optional-dependencies]
@@ -37,16 +38,16 @@ grib = [
 mch-anemoi-plugins = "mch_anemoi_plugins:main"
 
 [project.entry-points."anemoi.datasets.sources"]
-cosmo1e = "mch_anemoi.sources:COSMO1E"
-inca = "mch_anemoi.sources:INCA"
-iconCH1 = "mch_anemoi.sources:ICON_CH1_EPS"
-kendaCH1 = "mch_anemoi.sources:KENDA_CH1"
-station = "mch_anemoi.sources:SURFACE"
-radar = "mch_anemoi.sources:RADAR"
-satellite = "mch_anemoi.sources:SATELLITE"
-dem = "mch_anemoi.sources:NASADEM"
-geosatclim = "mch_anemoi.sources:GEOSATCLIM"
-opera = "mch_anemoi.sources:OPERA"
+cosmo1e = "mch_anemoi_plugins.transform.sources:COSMO_1"
+inca = "mch_anemoi_plugins.transform.sources:INCA"
+iconCH1 = "mch_anemoi_plugins.transform.sources:ICON_CH1_EPS"
+kendaCH1 = "mch_anemoi_plugins.transform.sources:KENDA_CH1"
+station = "mch_anemoi_plugins.transform.sources:SURFACE"
+radar = "mch_anemoi_plugins.transform.sources:RADAR"
+satellite = "mch_anemoi_plugins.transform.sources:SATELLITE"
+dem = "mch_anemoi_plugins.transform.sources:NASADEM"
+geosatclim = "mch_anemoi_plugins.transform.sources:GEOSATCLIM"
+opera = "mch_anemoi_plugins.transform.sources:OPERA"
 
 [project.entry-points."anemoi.transform.filters"]
 project = "mch_anemoi_plugins.transform.filters:Project"
