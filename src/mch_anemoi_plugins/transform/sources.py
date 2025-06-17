@@ -1,9 +1,12 @@
 import datetime
 import json
 from itertools import chain
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Union
 
 import numpy as np
-import pandas as pd
 import xarray as xr
 import yaml
 from anemoi.datasets.create.source import Source
@@ -12,6 +15,8 @@ from anemoi.datasets.create.sources.xarray_support.fieldlist import XarrayFieldL
 from anemoi.datasets.create.sources.xarray_support.flavour import CoordinateGuesser
 from anemoi.datasets.create.sources.xarray_support.time import Time
 from anemoi.datasets.create.sources.xarray_support.variable import Variable
+from anemoi.datasets.dates.groups import GroupOfDates
+from data_provider import DataProvider
 from data_provider.default_provider import all_retrievers
 from data_provider.default_provider import default_provider
 from data_provider.utils import read_file
@@ -35,16 +40,33 @@ class MCHVariable(Variable):
     def __init__(
         self,
         *,
-        ds,
-        var,
-        coordinates,
-        grid,
-        time,
-        metadata,
-        proj_string=None,
-        source="",
-        **kwargs,
-    ):
+        ds: xr.Dataset,
+        var: xr.DataArray,
+        coordinates: List[Any],
+        grid: xr.Dataset,
+        time: Time,
+        metadata: Dict[Any, Any],
+        proj_string: Union[str, None] = None,
+        source: str = "",
+        **kwargs: Any,
+    ) -> None:
+        """
+        Initialize MCHVariable.
+
+        Args:
+            ds (xr.Dataset): Input dataset.
+            var (xr.DataArray): Variable data array.
+            coordinates (List[Any]): List of coordinates.
+            grid (xr.Dataset): Grid dataset.
+            time (Time): Time object.
+            metadata (Dict[Any, Any]): Metadata dictionary.
+            proj_string (Union[str, None], optional): Projection string. Default is None.
+            source (str, optional): Source string. Default is "".
+            **kwargs (Any): Additional keyword arguments.
+
+        Returns:
+            None
+        """
         super().__init__(
             ds=ds,
             variable=var,
@@ -92,7 +114,13 @@ class MCHField(XArrayField):
         return [d for d in self.selection.dims if d not in self.grid_coords]
 
     @property
-    def resolution(self):
+    def resolution(self) -> str:
+        """
+        Compute the resolution based on the minimal spacing along grid dimensions.
+
+        For projected CRS, it computes the minimal difference in x and y (converted to meters)
+        and rounds it to a kilometer value.
+        """
         if "crs" in self.selection.attrs:
             valid_crs = CRS.from_user_input(self.selection.attrs["crs"])
         else:
@@ -123,11 +151,22 @@ class MCHField(XArrayField):
         return f"{tuple(v.item() for v in res_km)[0]}km"
 
     @property
-    def crs(self):
+    def crs(self) -> str:
+        """
+        Retrieve the coordinate reference system (CRS) string.
+
+        This is derived from the projection string.
+
+        """
         return self.proj_string
 
     @property
-    def bounding_box(self):
+    def bounding_box(self) -> tuple:
+        """
+        Compute the bounding box of the field as (min_x, min_y, max_x, max_y).
+
+        It selects the minimal values along non-grid dimensions and calculates the extent.
+        """
         minimal = self.selection.isel({d: 0 for d in self.not_grid_dim})
         bbox = (
             float(np.min(minimal.x)),
@@ -140,18 +179,36 @@ class MCHField(XArrayField):
 
 class MCHFieldList(XarrayFieldList):
     @classmethod
-    def from_xarray(cls, ds, flavour=None, proj_string=None, source=""):
+    def from_xarray(
+        cls,
+        ds: xr.Dataset,
+        flavour: Union[str, dict, None] = None,
+        proj_string: Union[str, None] = None,
+        source: str = "",
+    ) -> "MCHFieldList":
+        """
+        Create an MCHFieldList from an xarray dataset.
+
+        Args:
+            ds (xr.Dataset): Input xarray dataset.
+            flavour (Union[str, dict, None], optional): Flavour configuration. Default is None.
+            proj_string (Union[str, None], optional): Projection string. Default is None.
+            source (str, optional): Source string. Default is "".
+
+        Returns:
+            MCHFieldList: An instance of MCHFieldList populated with variables from the dataset.
+        """
         variables = []
         if isinstance(flavour, str):
             with open(flavour) as f:
-                if flavour.endswith(".yaml") or flavour.endswith(".yml"):
+                if flavour.endswith((".yaml", ".yml")):
                     flavour = yaml.safe_load(f)
                 else:
                     flavour = json.load(f)
         guess = CoordinateGuesser.from_flavour(ds, flavour)
         skip = set()
 
-        def _skip_attr(v, attr_name):
+        def _skip_attr(v: Any, attr_name: str) -> None:
             attr_val = getattr(v, attr_name, "")
             if isinstance(attr_val, str):
                 skip.update(attr_val.split(" "))
@@ -189,9 +246,51 @@ class MCHFieldList(XarrayFieldList):
         return cls(ds, variables)
 
 
+def check_indexing(data: xr.Dataset, time_dim: str) -> xr.Dataset:
+    potentially_misleading_coords = [
+        "surface_altitude",
+        "land_area_fraction",
+        "stationName",
+        "dataOwner",
+    ]  # those will make anemoi-datasets display warnings for unsupported coordinates
+    for n in potentially_misleading_coords:
+        if n in data.coords and n not in data.dims:
+            data = data.drop(n)
+    if "number" not in data.dims:
+        if "realization" in data.dims:
+            # realization dimension is used for ensemble members
+            # but anemoi expects a number dimension
+            data = data.rename({"realization": "number"})
+        else:
+            data = data.expand_dims(number=[0])
+    if time_dim == "forecast_reference_time":
+        if "lead_time" in data.dims:
+            # forecast data
+            data["forecast_reference_time"].attrs.update(standard_name="date")
+            data["lead_time"].attrs.update(standard_name="forecast_period")
+        else:
+            # wrongly indexed observation/analysis data
+            if "lead_time" in data.coords:
+                data = data.drop_vars("lead_time")  # misleading for anemoi, will try to
+                # interpret it as forecast data
+            if "time" in data.coords:
+                data = data.drop_vars(
+                    "time"
+                )  # remove time coordinate otherwise 2 coordinates are intepreted as time and anemoi complains
+            data["forecast_reference_time"].attrs.update(standard_name="time")
+    elif time_dim == "time":
+        # observation data
+        data["time"].attrs.update(standard_name="time")
+    return data
+
+
 def get_fieldlist_from_data_provider(
-    provider, source, dates, param, **retriever_kwargs
-):
+    provider: DataProvider,
+    source: str,
+    dates: List[datetime.datetime],
+    param: Union[List[str], None] = None,
+    **retriever_kwargs: Any,
+) -> MCHFieldList:
     expanded_kwargs = retriever_kwargs.copy()
     for k, v in retriever_kwargs.items():
         if isinstance(v, str) and v.startswith("$file:"):
@@ -204,17 +303,20 @@ def get_fieldlist_from_data_provider(
         if "time" in data.dims
         else None
     )
-    data = data.drop_duplicates(...)
     crs = provider.get_crs(source)
     if isinstance(crs, dict) and "through" in expanded_kwargs:
         crs = crs[expanded_kwargs["through"]]
+    elif isinstance(crs, dict) and "gridefix" in crs:
+        crs = crs["gridefix"]  # retrievers default for NWP and satellite data
     if time_dim is not None:  # e.g. not a forcing dataset
         data = data.sortby(time_dim).sel(
             {time_dim: dates}, method="nearest"
         )  # return only the relevant time for daily arrays
     else:
-        data = data.assign_coords(time=dates)
-        crs = "epsg:2056"
+        data = data.assign_coords(
+            time=dates
+        )  # if no time dimension, assign the dates as a coordinate
+        time_dim = "time"
     if not ("longitude" in data.coords and "latitude" in data.coords):
         data = assign_lonlat(data, crs)
     if (
@@ -224,37 +326,7 @@ def get_fieldlist_from_data_provider(
         data = data.reindex_like(
             xr.Dataset(coords={time_dim: first_hour_day}), method="nearest"
         )
-    potentially_misleading_coords = [
-        "lead_time",
-        "forecast_reference_time",
-        "realization",
-        "step",
-        "surface_altitude",
-        "land_area_fraction",
-        "stationName",
-    ]  # those are handled in a separate logic, we should probably change that and let anemoi deal with it
-    for n in potentially_misleading_coords:
-        if n in data.coords and n not in data.dims:
-            data = data.drop(n)
-    data = data.rename({time_dim: "forecast_reference_time"})
-    if (
-        data.forecast_reference_time.to_series().duplicated().any()
-        and source != "SATELLITE"
-    ):
-        data = data.groupby(
-            "forecast_reference_time"
-        ).mean()  # avoids duplicated dates...
-    if "lead_time" in data.dims:
-        # forecast data
-        data["lead_time"].attrs.update(standard_name="forecast_period")
-    if "number" not in data.dims:
-        data = data.expand_dims(number=[0])
-    isodates = [pd.to_datetime(d).isoformat() for d in dates]
-    x = xr.Dataset(coords=dict(forecast_reference_time=isodates))
-    data = data.reindex_like(x, method="bfill")
-    data["forecast_reference_time"].attrs.update(standard_name="time")
-    if "x" in data.dims:
-        data = data.transpose("forecast_reference_time", "number", "x", "y")
+    data = check_indexing(data, time_dim)
     xarray_fieldlist = MCHFieldList.from_xarray(data, proj_string=crs, source=source)
     return xarray_fieldlist
 
@@ -272,6 +344,8 @@ class DataProviderSource(Source):
         self.retriever_kwargs = retriever_kwargs
 
     def execute(self, dates: list[datetime.datetime]):
+        if isinstance(dates, GroupOfDates):
+            dates = dates.dates
         if not isinstance(self.param, list):
             self.param = [self.param]
         fieldlist = get_fieldlist_from_data_provider(
@@ -318,14 +392,13 @@ print(
         for name in source_names
     )
 )
-COSMO_E = make_source_class("COSMO-E")
+COSMO_1E = make_source_class("COSMO-1E")
 INCA = make_source_class("INCA")
 OPERA = make_source_class("OPERA")
 GEOSATCLIM = make_source_class("GEOSATCLIM")
 KENDA_CH1 = make_source_class("KENDA-CH1")
 RADAR = make_source_class("RADAR")
 DHM25 = make_source_class("DHM25")
-COSMO_1 = make_source_class("COSMO-1")
 CEDTM = make_source_class("CEDTM")
 CMSAF = make_source_class("CMSAF")
 SATELLITE = make_source_class("SATELLITE")
