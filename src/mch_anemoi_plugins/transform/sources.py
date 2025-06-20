@@ -247,6 +247,9 @@ class MCHFieldList(XarrayFieldList):
 
 
 def check_indexing(data: xr.Dataset, time_dim: str) -> xr.Dataset:
+    """ Helpers function to check and remove unsupported coordinates and dimensions. 
+    In particular, in the case of analysis data from gridefix, 1 lead time of 0 is provided as a coord, while the forecast_reference_time is the time dimension. However, anemoi does not support lead_time as a coordinate if only one value is provided (the ndarray of lead times has dim 0). We remove lead_time and set the time dimension to forecast_reference_time.
+    Otherwise, observation data is indexed by time, and forecast data by forecast_reference_time and lead_time, which anemoi supports."""
     potentially_misleading_coords = [
         "surface_altitude",
         "land_area_fraction",
