@@ -24,11 +24,11 @@ from gridefix_process.helpers import reproject
 from pyproj import CRS
 
 
-def get_all_data_provider_sources():
+def get_all_data_provider_sources() -> List[str]:
     return list(set(chain.from_iterable(r.sources for r in all_retrievers())))
 
 
-def assign_lonlat(array, crs):
+def assign_lonlat(array: xr.DataArray, crs: str) -> xr.DataArray:
     xv, yv = np.meshgrid(array.x, array.y, indexing="ij")
     lon, lat = reproject(xv, yv, crs, CRS.from_user_input("epsg:4326"))
     return array.assign_coords(longitude=(("x", "y"), lon), latitude=(("x", "y"), lat))
@@ -82,7 +82,7 @@ class MCHVariable(Variable):
             x.replace("variable", "param"): k for x, k in self._metadata.items()
         }
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int) -> "MCHField":
         if i >= self.length:
             raise IndexError(i)
         coords = np.unravel_index(i, self.shape)
@@ -92,15 +92,15 @@ class MCHVariable(Variable):
 
 class MCHField(XArrayField):
     @property
-    def source(self):
+    def source(self) -> str:
         return self.owner.source
 
     @property
-    def proj_string(self):
+    def proj_string(self) -> str:
         return self.owner.proj_string
 
     @property
-    def grid_coords(self):
+    def grid_coords(self) -> np.ndarray:
         std_grid_coords = ["x", "y", "longitude", "latitude"]
         station_or_cell = ["cell", "station"]
         data_coords = [c for c in self.selection.coords]
@@ -110,7 +110,7 @@ class MCHField(XArrayField):
         )
 
     @property
-    def not_grid_dim(self):
+    def not_grid_dim(self) -> List[str]:
         return [d for d in self.selection.dims if d not in self.grid_coords]
 
     @property
