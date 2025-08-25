@@ -20,21 +20,35 @@ from data_provider import DataProvider
 from data_provider.default_provider import all_retrievers
 from data_provider.default_provider import default_provider
 from data_provider.utils import read_file
-from gridefix_process.helpers import reproject
 from pyproj import CRS
+from typing import Tuple
+from pyproj import Transformer
 
+def reproject(
+    x_coords: Union[np.ndarray, List],
+    y_coords: Union[np.ndarray, List],
+    src_crs: CRS,
+    dst_crs: CRS,
+) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[List, List]]:
+    transformer = Transformer.from_crs(src_crs, dst_crs, always_xy=True)
+    return transformer.transform(x_coords, y_coords)
 
 def get_all_data_provider_sources() -> List[str]:
     return list(set(chain.from_iterable(r.sources for r in all_retrievers())))
 
 
 def assign_lonlat(array: xr.DataArray, crs: str) -> xr.DataArray:
+    if crs == "epsg:4326":
+        # If the CRS is already WGS84, we can directly assign longitude and latitude
+        return array.assign_coords(
+            longitude=("x", array.x.data), latitude=("y", array.y.data)
+        )
     xv, yv = np.meshgrid(array.x, array.y, indexing="ij")
     lon, lat = reproject(xv, yv, crs, CRS.from_user_input("epsg:4326"))
     return array.assign_coords(longitude=(("x", "y"), lon), latitude=(("x", "y"), lat))
 
 
-class MCHVariable(Variable):
+class CustomVariable(Variable):
     """A variable class for MCH data, extending the XArrayVariable class with more metadata."""
 
     def __init__(
@@ -51,7 +65,7 @@ class MCHVariable(Variable):
         **kwargs: Any,
     ) -> None:
         """
-        Initialize MCHVariable.
+        Initialize CustomVariable.
 
         Args:
             ds (xr.Dataset): Input dataset.
@@ -82,15 +96,15 @@ class MCHVariable(Variable):
             x.replace("variable", "param"): k for x, k in self._metadata.items()
         }
 
-    def __getitem__(self, i: int) -> "MCHField":
+    def __getitem__(self, i: int) -> "CustomField":
         if i >= self.length:
             raise IndexError(i)
         coords = np.unravel_index(i, self.shape)
         kwargs = {k: v for k, v in zip(self.names, coords)}
-        return MCHField(self, self.variable.isel(kwargs))
+        return CustomField(self, self.variable.isel(kwargs))
 
 
-class MCHField(XArrayField):
+class CustomField(XArrayField):
     @property
     def source(self) -> str:
         return self.owner.source
@@ -152,12 +166,6 @@ class MCHField(XArrayField):
 
     @property
     def crs(self) -> str:
-        """
-        Retrieve the coordinate reference system (CRS) string.
-
-        This is derived from the projection string.
-
-        """
         return self.proj_string
 
     @property
@@ -177,7 +185,7 @@ class MCHField(XArrayField):
         return bbox
 
 
-class MCHFieldList(XarrayFieldList):
+class CustomFieldList(XarrayFieldList):
     @classmethod
     def from_xarray(
         cls,
@@ -185,18 +193,12 @@ class MCHFieldList(XarrayFieldList):
         flavour: Union[str, dict, None] = None,
         proj_string: Union[str, None] = None,
         source: str = "",
-    ) -> "MCHFieldList":
+    ) -> "CustomFieldList":
         """
-        Create an MCHFieldList from an xarray dataset.
-
-        Args:
-            ds (xr.Dataset): Input xarray dataset.
-            flavour (Union[str, dict, None], optional): Flavour configuration. Default is None.
-            proj_string (Union[str, None], optional): Projection string. Default is None.
-            source (str, optional): Source string. Default is "".
+        Create an CustomFieldList from an xarray dataset.
 
         Returns:
-            MCHFieldList: An instance of MCHFieldList populated with variables from the dataset.
+            CustomFieldList: An instance of CustomFieldList populated with variables from the dataset.
         """
         variables = []
         if isinstance(flavour, str):
@@ -232,7 +234,7 @@ class MCHFieldList(XarrayFieldList):
                     c.is_dim = False
                 coordinates.append(c)
             variables.append(
-                MCHVariable(
+                CustomVariable(
                     ds=ds,
                     var=v,
                     coordinates=coordinates,
@@ -293,12 +295,13 @@ def get_fieldlist_from_data_provider(
     dates: List[datetime.datetime],
     param: Union[List[str], None] = None,
     **retriever_kwargs: Any,
-) -> MCHFieldList:
+) -> CustomFieldList:
     expanded_kwargs = retriever_kwargs.copy()
     for k, v in retriever_kwargs.items():
         if isinstance(v, str) and v.startswith("$file:"):
             expanded_kwargs[k] = read_file(v.removeprefix("$file:"))
     data = provider.provide(source, param, dates, **expanded_kwargs)
+    data = data.drop_duplicates(...)
     time_dim = (
         "forecast_reference_time"
         if "forecast_reference_time" in data.dims
@@ -309,8 +312,6 @@ def get_fieldlist_from_data_provider(
     crs = provider.get_crs(source)
     if isinstance(crs, dict) and "through" in expanded_kwargs:
         crs = crs[expanded_kwargs["through"]]
-    elif isinstance(crs, dict) and "gridefix" in crs:
-        crs = crs["gridefix"]  # retrievers default for NWP and satellite data
     if time_dim is not None:  # e.g. not a forcing dataset
         data = data.sortby(time_dim).sel(
             {time_dim: dates}, method="nearest"
@@ -330,7 +331,7 @@ def get_fieldlist_from_data_provider(
             xr.Dataset(coords={time_dim: first_hour_day}), method="nearest"
         )
     data = check_indexing(data, time_dim)
-    xarray_fieldlist = MCHFieldList.from_xarray(data, proj_string=crs, source=source)
+    xarray_fieldlist = CustomFieldList.from_xarray(data, proj_string=crs, source=source)
     return xarray_fieldlist
 
 
@@ -372,16 +373,6 @@ def make_source_class(source_name: str):
 
 
 def get_all_source_classes(source_names: list[str]) -> dict[str, type]:
-    """
-    Create source classes for all specified source names.
-
-    Args:
-        source_names (list[str]): A list of source names to create classes for.
-
-    Returns:
-        dict[str, Type[DataProviderSource]]: A dictionary mapping source names to their
-            dynamically created classes.
-    """
     return {name: make_source_class(name) for name in source_names}
 
 

@@ -14,8 +14,8 @@ import xarray as xr
 from anemoi.transform.fields import new_field_from_numpy
 from anemoi.transform.fields import new_fieldlist_from_list
 from anemoi.transform.filter import Filter
-from earthkit.data import Field  # adjust as needed
-from earthkit.data.indexing.fieldlist import FieldArray  # adjust as needed
+from earthkit.data import Field 
+from earthkit.data.indexing.fieldlist import FieldArray  
 from earthkit.meteo import thermo
 from earthkit.meteo.wind.array import polar_to_xy
 from earthkit.meteo.wind.array import xy_to_polar
@@ -25,7 +25,7 @@ from scipy.spatial import cKDTree
 
 from mch_anemoi_plugins.helpers import assign_lonlat
 from mch_anemoi_plugins.helpers import reproject
-from mch_anemoi_plugins.transform.sources import MCHFieldList
+from mch_anemoi_plugins.transform.sources import CustomFieldList
 
 
 def merge_fieldlist(field_array: FieldArray) -> xr.Dataset:
@@ -326,7 +326,7 @@ class BaseXarrayFilter(Filter):
         example = field_array[0]
         merged = merge_fieldlist(field_array)
         result = self.apply_filter(merged, example)
-        return MCHFieldList.from_xarray(
+        return CustomFieldList.from_xarray(
             result, proj_string=example.crs, source=example.source
         )
 
