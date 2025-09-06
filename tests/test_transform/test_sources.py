@@ -1,7 +1,7 @@
 import entrypoints
 import pytest
 from anemoi.datasets.create import Init
-from data_provider.default_provider import all_retrievers
+from weathermart.default_provider import available_retrievers
 
 from mch_anemoi_plugins.transform.sources import DataProviderSource
 
@@ -9,7 +9,7 @@ all_entrypoints = entrypoints.get_group_all("anemoi.datasets.sources")
 all_sources = [e.name for e in all_entrypoints]
 all_classes = [e.object_name.replace("_", "-") for e in all_entrypoints]
 example_variable = {
-    e: next(list(r.variables.keys())[0] for r in all_retrievers() if s in r.sources)
+    e: next(list(r.variables.keys())[0] for r in available_retrievers() if s in r.sources)
     for (s, e) in zip(all_classes, all_sources)
 }
 example_variable["satellite"] = (

@@ -19,10 +19,11 @@ dependencies = [
     "pyyaml",
     "omegaconf>=2.3.0,<3",
     "cf-units>=3.2.0,<4",
-    "earthkit>=0.10.0",
-    "eccodes>=2.38.3",
+    "earthkit-data>=0.12.0,<0.14",
+    "eccodes==2.39.1",
     "weathermart",
-    "meteodata-lab>=0.2.0",
+    "meteodata-lab>=0.5.0",
+    "numpy>=2.1.0",
 ]
 
 
@@ -44,7 +45,8 @@ interp2grid = "mch_anemoi_plugins.transform.filters:Interp2Grid"
 uv2dirspeed = "mch_anemoi_plugins.transform.filters:UV2Dirspeed"
 dirspeed2uv = "mch_anemoi_plugins.transform.filters:Dirspeed2UV"
 q2dewpoint = "mch_anemoi_plugins.transform.filters:Q2Dewpoint"
-destagger = "mch_anemoi_plugins.transform.filters:HorizontalDestagger"
+destagger = "mch_anemoi_plugins.transform.filters:Destagger"
+clip-lateral-boundaries = "mch_anemoi_plugins.transform.filters:ClipLateralBoundaries"
 
 [project.optional-dependencies]
 gridefix = [
@@ -115,3 +117,8 @@ disallow_untyped_defs = true
 
 [tool.coverage.run]
 omit = ["test/**", "doc/**"]
+
+[dependency-groups]
+dev = [
+    "ipdb>=0.13.13",
+]
