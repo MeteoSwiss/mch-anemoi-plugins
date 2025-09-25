@@ -7,7 +7,7 @@ from anemoi.transform.filter import Filter
 
 
 class ClipLateralBoundaries(Filter):
-    """A filter to clip fields to a specified lateral boundary."""
+    """A filter to clip fields of ICON-CH to a specified lateral boundary."""
 
     def __init__(self, strip_idx: int, gridfile: str):
         """Initialize the filter.
@@ -58,5 +58,4 @@ def _clip_field_lateral_boundaries(
     buffer = _FieldBuffer(_is_ensemble(field))
     buffer.load(field, None)
     da = buffer.to_xarray()
-    print(idx)
     return clip_lateral_boundary_strip(da, strip_idx, idx=idx)

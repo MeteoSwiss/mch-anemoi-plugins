@@ -1,6 +1,4 @@
 import earthkit.data as ekd
-import numpy as np
-import xarray as xr
 from anemoi.transform.filter import Filter
 from meteodatalab.operators import destagger
 

@@ -43,11 +43,6 @@ class InterpK2P(Filter):
         
         ds = to_meteodatalab(data)
         
-        # ensure all values at the top-most level are below 5000 hPa
-        # else the interpolation will leave NaNs at the top
-        ds["P"][{"z": 0}] = ds["P"][{"z": 0}].where(
-            ds["P"][{"z": 0}] < 5000, 5000 - 1e-5
-        )
         ds = _interpolate_to_pressure_levels(
             ds,
             ds.pop("P"),
@@ -68,6 +63,13 @@ def _interpolate_to_pressure_levels(
         p_ex_lev: list[float],
     ) -> dict[str, xr.DataArray]:
     """Interpolate to pressure levels and extrapolate below the surface where needed."""
+
+    # ensure all values at the top-most level are below 5000 hPa
+    # else the interpolation will leave NaNs at the top
+    pressure[{"z": 0}] = pressure[{"z": 0}].where(
+        pressure[{"z": 0}] < 5000, 5000 - 1e-5
+    )
+
     for name, field in ds.items():
         LOG.info("Interpolating %s to pressure levels %s", name, p_lev)
         # if field.attrs["vcoord_type"] in SFC_VCOORD_TYPES:

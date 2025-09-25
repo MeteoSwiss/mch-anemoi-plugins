@@ -1,16 +1,15 @@
 import earthkit.data as ekd
 from anemoi.transform.filters import filter_registry
-from meteodatalab import data_source
-from meteodatalab import grib_decoder
-from meteodatalab.operators.clip import clip_lateral_boundary_strip
-from meteodatalab.operators.destagger import destagger
+from meteodatalab import data_source, grib_decoder
 from numpy.testing import assert_array_equal
 import numpy as np
 
-from mch_anemoi_plugins.transform.filters import ClipLateralBoundaries, Destagger
+from mch_anemoi_plugins.transform.filters import ClipLateralBoundaries, Destagger, InterpK2P
 from mch_anemoi_plugins.helpers import to_meteodatalab, from_meteodatalab
 
 def test_clip_lateral_boundaries(data_dir):
+    from meteodatalab.operators.clip import clip_lateral_boundary_strip
+
     fn = str(data_dir / "kenda-ch1-sfc.grib")
     gridfile_fn = "/scratch/mch/jenkins/icon/pool/data/ICON/mch/grids/icon-1/icon_grid_0001_R19B08_mch.nc"
     strip_idx = 14
@@ -32,6 +31,7 @@ def test_clip_lateral_boundaries(data_dir):
 
 
 def test_destagger(data_dir):
+    from meteodatalab.operators.destagger import destagger
 
     # test vertical destaggering
     fn = str(data_dir / "kenda-ch1-w-ml.grib")
