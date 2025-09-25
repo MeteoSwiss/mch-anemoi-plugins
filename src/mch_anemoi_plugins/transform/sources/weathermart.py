@@ -11,7 +11,7 @@ from weathermart.default_provider import available_retrievers, default_provider
 from weathermart.utils import read_file
 import xarray as xr
 
-from .xarray_extensions import CustomFieldList
+from mch_anemoi_plugins.xarray_extensions import CustomFieldList
 from mch_anemoi_plugins.helpers import reproject
 
 
@@ -167,5 +167,3 @@ OPERA = make_source_class("OPERA")
 NASADEM = make_source_class("NASADEM")
 SATELLITE = make_source_class("SATELLITE")
 SURFACE = make_source_class("SURFACE")
-ICON_CH1_EPS = make_source_class("ICON-CH1-EPS")
-KENDA_CH1 = make_source_class("KENDA-CH1")

@@ -21,22 +21,13 @@ dependencies = [
     "cf-units>=3.2.0,<4",
     "earthkit-data>=0.12.0,<0.14",
     "eccodes==2.39.1",
-    "weathermart",
     "meteodata-lab>=0.5.0",
-    "numpy>=2.1.0",
+    "numpy<3",
 ]
 
 
 [project.scripts]
 mch-anemoi-plugins = "mch_anemoi_plugins:main"
-
-[project.entry-points."anemoi.datasets.sources"]
-station = "mch_anemoi_plugins.transform.sources:SURFACE"
-satellite = "mch_anemoi_plugins.transform.sources:SATELLITE"
-dem = "mch_anemoi_plugins.transform.sources:NASADEM"
-opera = "mch_anemoi_plugins.transform.sources:OPERA"
-iconCH1 = "mch_anemoi_plugins.transform.sources:ICON_CH1_EPS"
-kendaCH1 = "mch_anemoi_plugins.transform.sources:KENDA_CH1"
 
 [project.entry-points."anemoi.transform.filters"]
 project = "mch_anemoi_plugins.transform.filters:Project"
@@ -47,10 +38,16 @@ dirspeed2uv = "mch_anemoi_plugins.transform.filters:Dirspeed2UV"
 q2dewpoint = "mch_anemoi_plugins.transform.filters:Q2Dewpoint"
 destagger = "mch_anemoi_plugins.transform.filters:Destagger"
 clip-lateral-boundaries = "mch_anemoi_plugins.transform.filters:ClipLateralBoundaries"
+interp-k2p = "mch_anemoi_plugins.transform.filters:InterpK2P"
+assign-grid = "mch_anemoi_plugins.transform.filters:AssignGrid"
 
 [project.optional-dependencies]
 gridefix = [
     "gridefix-process>=3.0.2",
+]
+
+weathermart = [
+    "weathermart",
 ]
 
 [build-system]
@@ -72,7 +69,7 @@ dependencies = [
 
 [tool.uv.sources]
 anemoi-plugins = { git = "https://github.com/ecmwf/anemoi-plugins.git" }
-anemoi-datasets = { git = "https://github.com/ecmwf/anemoi-datasets.git"}
+# anemoi-datasets = { git = "https://github.com/ecmwf/anemoi-datasets.git"}
 anemoi-transform = { git = "https://github.com/ecmwf/anemoi-transform.git" }
 meteodata-lab = { git = "https://github.com/MeteoSwiss/meteodata-lab.git"}
 weathermart = {git = "https://github.com/MeteoSwiss/weathermart.git"}
