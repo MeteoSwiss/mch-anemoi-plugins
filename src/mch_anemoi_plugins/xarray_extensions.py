@@ -9,7 +9,7 @@ import numpy as np
 import xarray as xr
 import yaml
 import json
-from pyproj import CRS, Transformer
+from pyproj import CRS
 
 from mch_anemoi_plugins.helpers import reproject
 
