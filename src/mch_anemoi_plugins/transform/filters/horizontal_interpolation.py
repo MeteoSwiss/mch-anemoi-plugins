@@ -1,31 +1,18 @@
-"""
-Plugin filters for anemoi-transform.
-Each filter is implemented as a plugin class that provides a
-forward(data: FieldList) -> FieldList method.
-"""
-
 import re
 from typing import Union
 
 import dask.array as da
-import earthkit.data as ekd
 import numpy as np
 import xarray as xr
-from anemoi.transform.fields import new_field_from_numpy
-from anemoi.transform.fields import new_fieldlist_from_list
 from anemoi.transform.filter import Filter
-from earthkit.data import Field 
 from earthkit.data.indexing.fieldlist import FieldArray  
-from earthkit.meteo import thermo
-from earthkit.meteo.wind.array import polar_to_xy
-from earthkit.meteo.wind.array import xy_to_polar
 from pyproj import CRS
 from scipy.interpolate import NearestNDInterpolator
 from scipy.spatial import cKDTree
 
 from mch_anemoi_plugins.helpers import assign_lonlat
 from mch_anemoi_plugins.helpers import reproject
-from mch_anemoi_plugins.transform.sources import CustomFieldList
+from mch_anemoi_plugins.xarray_extensions import CustomFieldList
 
 
 def merge_fieldlist(field_array: FieldArray) -> xr.Dataset:
@@ -44,53 +31,10 @@ def merge_fieldlist(field_array: FieldArray) -> xr.Dataset:
     return xr.concat(merged, dim="forecast_reference_time")
 
 
-def _q2dewpoint(array: xr.Dataset, q="QV_2M", sp="SP", dewpoint="TD_2M") -> xr.Dataset:
-    q_sl = array[q].data
-    sp_sl = array[sp].data
-    td_sl = thermo.dewpoint_from_specific_humidity(q=q_sl, p=sp_sl)
-    new_array = array.assign({dewpoint: (array.dims, td_sl)}).drop_vars([q, sp])
-    return new_array
-
-
-def _dirspeed2uv(
-    array: xr.Dataset,
-    wind_speed="SP_10M",
-    wind_dir="DD_10M",
-    u_component="U_10M",
-    v_component="V_10M",
-    in_radians=False,
-) -> xr.Dataset:
-    wind_dir_data = array[wind_dir].data
-    if in_radians:
-        wind_dir_data = np.rad2deg(wind_dir_data)
-    u, v = polar_to_xy(array[wind_speed].data, wind_dir_data)
-    new_array = array.assign(
-        {u_component: (array.dims, u), v_component: (array.dims, v)}
-    ).drop_vars([wind_speed, wind_dir])
-    return new_array
-
-
-def _uv2dirspeed(
-    array: xr.Dataset,
-    u_component="U_10M",
-    v_component="V_10M",
-    wind_speed="SP_10M",
-    wind_dir="DD_10M",
-    in_radians=False,
-) -> xr.Dataset:
-    magnitude, direction = xy_to_polar(array[u_component].data, array[v_component].data)
-    if in_radians:
-        direction = np.deg2rad(direction)
-    new_array = array.assign(
-        {wind_speed: (array.dims, magnitude), wind_dir: (array.dims, direction)}
-    ).drop_vars([u_component, v_component])
-    return new_array
-
-
 def _interp2grid(
     array: xr.Dataset, example_field, template: Union[xr.Dataset, str], method="linear"
 ) -> xr.Dataset:
-    from gridefix_process import grid_interp
+    from gridefix_process import grid_interp # type: ignore
 
     if isinstance(template, str) and template.startswith("$file:"):
         template = xr.open_zarr(template.removeprefix("$file:"))
@@ -129,7 +73,7 @@ def _interp_na(array: xr.Dataset, param: str) -> xr.Dataset:
 def _interp2res(
     array: xr.Dataset, example_field, resolution: Union[str, int], target_crs=None
 ) -> xr.Dataset:
-    from gridefix_process import grid_interp
+    from gridefix_process import grid_interp # type: ignore
 
     resolution_km = float(re.sub(r"[^0-9.\-]", "", str(resolution)))
     target_crs = target_crs or example_field.crs
@@ -216,107 +160,7 @@ def interp2points(
     return array_reduced
 
 
-def _destagger_field(field: Field, dim: str) -> xr.DataArray:
-    import meteodatalab.operators.destagger as dsg
-    from meteodatalab.grib_decoder import _FieldBuffer
-    from meteodatalab.grib_decoder import _is_ensemble
 
-    buffer = _FieldBuffer(_is_ensemble(field))
-    buffer.load(field, None)
-    da = buffer.to_xarray()
-
-    # TODO: this hardcoding is not ideal
-    if f"origin_{dim}" not in da.attrs:
-        da.attrs[f"origin_{dim}"] = 0.5
-
-    return dsg.destagger(da, dim).squeeze(drop=True)
-
-
-class HorizontalDestagger(Filter):
-    """A filter to destagger fields using meteodata-lab."""
-
-    def __init__(self, param_dim: dict[str, str]):
-        """Initialize the filter.
-
-        Parameters
-        ----------
-        param_dim:
-            Dictionary mapping parameter names to dimensions along which to destagger.
-        """
-        self.param_dim = param_dim
-        self.param = list(param_dim.keys())
-
-    def forward(self, data: ekd.FieldList) -> ekd.FieldList:
-        result = []
-        for field in data:
-            if (param := field.metadata("param")) in self.param_dim:
-                field = new_field_from_numpy(
-                    _destagger_field(field, self.param_dim[param]).values,
-                    template=field,
-                    param=param,
-                )
-            result.append(field)
-        return new_fieldlist_from_list(result)
-
-    def backward_transform(self):
-        raise NotImplementedError("HorizontalDestagger is not reversible.")
-
-
-def _clip_field_lateral_boundaries(
-    field: Field,
-    strip_idx: int,
-    idx: xr.DataArray,
-) -> xr.DataArray:
-    from meteodatalab.grib_decoder import _FieldBuffer
-    from meteodatalab.grib_decoder import _is_ensemble
-    from meteodatalab.operators.clip import clip_lateral_boundary_strip
-
-    buffer = _FieldBuffer(_is_ensemble(field))
-    buffer.load(field, None)
-    da = buffer.to_xarray()
-    print(idx)
-    return clip_lateral_boundary_strip(da, strip_idx, idx=idx)
-
-
-class ClipLateralBoundaries(Filter):
-    """A filter to clip fields to a specified lateral boundary."""
-
-    def __init__(self, strip_idx: int, gridfile: str):
-        """Initialize the filter.
-
-        Parameters
-        ----------
-        strip_idx:
-            The maximum lateral boundary strip index to keep.
-        gridfile:
-            The path to the grid descriptor file.
-        """
-        self.strip_idx = strip_idx
-        self.gridfile = gridfile
-
-        ds = xr.open_dataset(self.gridfile)
-        if "refin_c_ctrl" not in ds:
-            raise ValueError(
-                f"Grid descriptor file {self.gridfile} does not contain 'refin_c_ctrl' variable."
-            )
-
-        self.idx = ds["refin_c_ctrl"].assign_attrs(uuidOfHGrid=ds.attrs["uuidOfHGrid"])
-
-    def forward(self, data: ekd.FieldList) -> ekd.FieldList:
-        result = []
-        for field in data:
-            _field = _clip_field_lateral_boundaries(field, self.strip_idx, self.idx)
-            field = new_field_from_numpy(
-                _field.values,
-                template=field,
-                uuidOfHGrid=_field.metadata.get("uuidOfHGrid"),
-                numberOfDataPoints=_field.metadata.get("numberOfDataPoints"),
-            )
-            result.append(field)
-        return new_fieldlist_from_list(result)
-
-
-# --- Base plugin class for xarray-based filters ---
 class BaseXarrayFilter(Filter):
     api_version = "1.0.0"
     schema = None
@@ -334,76 +178,6 @@ class BaseXarrayFilter(Filter):
         """Override in subclass with the actual transformation."""
         raise NotImplementedError
 
-
-# --- Plugin filter classes ---
-
-
-class Q2Dewpoint(BaseXarrayFilter):
-    """Compute dewpoint from specific humidity and pressure."""
-
-    def __init__(self, q: str = "QV_2M", sp: str = "SP", dewpoint: str = "TD_2M"):
-        self.q = q
-        self.sp = sp
-        self.dewpoint = dewpoint
-
-    def apply_filter(self, ds: xr.Dataset, example_field) -> xr.Dataset:
-        return _q2dewpoint(ds, q=self.q, sp=self.sp, dewpoint=self.dewpoint)
-
-
-class Dirspeed2UV(BaseXarrayFilter):
-    """Convert wind speed/direction to U/V components."""
-
-    def __init__(
-        self,
-        wind_speed: str = "SP_10M",
-        wind_dir: str = "DD_10M",
-        u_component: str = "U_10M",
-        v_component: str = "V_10M",
-        in_radians: bool = False,
-    ):
-        self.wind_speed = wind_speed
-        self.wind_dir = wind_dir
-        self.u_component = u_component
-        self.v_component = v_component
-        self.in_radians = in_radians
-
-    def apply_filter(self, ds: xr.Dataset, example_field) -> xr.Dataset:
-        return _dirspeed2uv(
-            ds,
-            wind_speed=self.wind_speed,
-            wind_dir=self.wind_dir,
-            u_component=self.u_component,
-            v_component=self.v_component,
-            in_radians=self.in_radians,
-        )
-
-
-class UV2Dirspeed(BaseXarrayFilter):
-    """Convert U/V components to wind speed/direction."""
-
-    def __init__(
-        self,
-        u_component: str = "U_10M",
-        v_component: str = "V_10M",
-        wind_speed: str = "SP_10M",
-        wind_dir: str = "DD_10M",
-        in_radians: bool = False,
-    ):
-        self.u_component = u_component
-        self.v_component = v_component
-        self.wind_speed = wind_speed
-        self.wind_dir = wind_dir
-        self.in_radians = in_radians
-
-    def apply_filter(self, ds: xr.Dataset, example_field) -> xr.Dataset:
-        return _uv2dirspeed(
-            ds,
-            u_component=self.u_component,
-            v_component=self.v_component,
-            wind_speed=self.wind_speed,
-            wind_dir=self.wind_dir,
-            in_radians=self.in_radians,
-        )
 
 
 class Interp2Grid(BaseXarrayFilter):

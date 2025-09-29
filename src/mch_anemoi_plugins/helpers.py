@@ -1,10 +1,11 @@
 from copy import copy
+from typing import Callable
+import io
 
+from meteodatalab import data_source, grib_decoder
 import earthkit.data as ekd
 import numpy as np
-from anemoi.transform.fields import new_field_from_numpy
-from anemoi.transform.fields import new_fieldlist_from_list
-from anemoi.transform.filter import Filter
+import xarray as xr
 from pyproj import CRS
 from pyproj import Transformer
 
@@ -30,41 +31,48 @@ def assign_lonlat(array, crs):
     return array.assign_coords(longitude=(("x", "y"), lon), latitude=(("x", "y"), lat))
 
 
-class ExamplePlugin(Filter):
-    """A filter to do something on fields."""
+class FieldListDataSource(data_source.DataSource):
+    def __init__(self, fieldlist: ekd.FieldList):
+        self.fieldlist = fieldlist
 
-    # The version of the plugin API, used to ensure compatibility
-    # with the plugin manager.
+    def _retrieve(self, request: dict):
+        yield from self.fieldlist.sel(**request)
 
-    api_version = "1.0.0"
 
-    # The schema of the plugin, used to validate the parameters.
-    # This is a Pydantic model.
+def meteodatalab_wrapper(func: Callable[..., dict[str, xr.DataArray]]) -> Callable[[ekd.FieldList], ekd.FieldList]:
+    """Decorator to wrap a function that processes an ekd.FieldList.
+    """
+    def inner(fieldlist: ekd.FieldList) -> ekd.FieldList:
+        source = FieldListDataSource(fieldlist)
+        result = func(source)
+        return _meteodalab_ds_to_fieldlist(result)
+    
+    return inner
 
-    schema = None
+def to_meteodatalab(fieldlist: ekd.FieldList) -> dict[str, xr.DataArray]:
+    """Convert an ekd.FieldList to a dictionary of xarray DataArrays."""
+    source = FieldListDataSource(fieldlist)
+    return grib_decoder.load(source, {})
 
-    def __init__(self, factor: float = 2.0):
-        """Initialise the filter with the user's parameters"""
+def from_meteodatalab(ds: dict[str, xr.DataArray]) -> ekd.FieldList:
+    """Convert a dictionary of xarray DataArrays to an ekd.FieldList."""
+    return _meteodalab_ds_to_fieldlist(ds)
 
-        self.factor = factor
+def _meteodalab_ds_to_fieldlist(ds: dict[str, xr.DataArray]) -> ekd.FieldList:
+    with io.BytesIO() as buffer:
+        
+        # write data to the buffer
+        for da in ds.values():
+            grib_decoder.save(da, buffer, bits_per_value=32) # TODO: find out why we need 32 and 16 leads to precision loss
+        
+        # reset the buffer position to the beginning
+        buffer.seek(0)
+        
+        # read data from the buffer into a FieldList
+        fs = ekd.from_source("stream", buffer, read_all=True, lazily=False)
+        
+        # somehow read_all does not work correctly, so we need to convert to FieldList
+        # to actually have all data loaded in memory and not get IO errors later
+        fl = ekd.FieldList.from_fields(fs)
 
-    def forward(self, data: ekd.FieldList) -> ekd.FieldList:
-        """Multiply all field values by self.factor"""
-
-        result = []
-        for field in data:  # Loop over all fields in the input data
-            values = (
-                field.to_numpy() * self.factor
-            )  # Multiply the field values by self.factor
-
-            out = new_field_from_numpy(
-                values,
-                template=field,  # Use the input field as a template for the output field
-                param=field.metadata("param")
-                + "_modified",  # Add "_modified" to the parameter name
-            )
-
-            result.append(out)
-
-        # Return the modified fields
-        return new_fieldlist_from_list(result)
+    return fl
