@@ -3,6 +3,7 @@ from .destaggering import Destagger
 from .grid import AssignGrid
 from .vertical_interpolation import InterpK2P
 from .horizontal_interpolation import Interp2Grid, InterpNAFilter, Interp2Res, Project
+from .omega_from_w import OmegaFromW
 
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "InterpNAFilter",
     "Interp2Res",
     "Project",
+    "OmegaFromW",
 ]
