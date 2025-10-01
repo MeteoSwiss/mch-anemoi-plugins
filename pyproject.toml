@@ -40,6 +40,8 @@ destagger = "mch_anemoi_plugins.transform.filters:Destagger"
 clip-lateral-boundaries = "mch_anemoi_plugins.transform.filters:ClipLateralBoundaries"
 interp-k2p = "mch_anemoi_plugins.transform.filters:InterpK2P"
 assign-grid = "mch_anemoi_plugins.transform.filters:AssignGrid"
+[project.entry-points."anemoi.datasets.create.sources"]
+rea-l-ch1-precip = "mch_anemoi_plugins.transform.sources:ReaLCh1Precip"
 
 [project.optional-dependencies]
 gridefix = [
