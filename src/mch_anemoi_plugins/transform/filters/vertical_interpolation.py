@@ -43,6 +43,14 @@ class InterpK2P(Filter):
         
         ds = to_meteodatalab(data)
         
+        # make sure HSURF has same time coordinates as other fields
+        time_coords = {k: ds["P"].coords[k] for k in ["ref_time", "lead_time", "valid_time"]}
+        ds["HSURF"] = xr.DataArray(
+            ds["HSURF"].values.repeat(ds["P"].shape[2], axis=2),
+            dims=ds["HSURF"].dims,
+            coords=dict(ds["HSURF"].coords) | time_coords,
+        )
+
         ds = _interpolate_to_pressure_levels(
             ds,
             ds.pop("P"),
@@ -71,10 +79,10 @@ def _interpolate_to_pressure_levels(
     )
 
     for name, field in ds.items():
-        LOG.info("Interpolating %s to pressure levels %s", name, p_lev)
-        # if field.attrs["vcoord_type"] in SFC_VCOORD_TYPES:
         if field.attrs.get("vcoord_type", "") != "model_level":
             continue
+        LOG.info("Interpolating %s to pressure levels %s", name, p_lev)
+        
         res = vertical_interpolation.interpolate_k2p(field, "linear_in_lnp", pressure, p_lev, "hPa")
         for p in p_ex_lev:
             idx = {"z": p_lev.index(p)}
