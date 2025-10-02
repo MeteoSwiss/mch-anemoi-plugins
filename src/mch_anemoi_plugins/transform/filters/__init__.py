@@ -3,7 +3,8 @@ from .destaggering import Destagger
 from .grid import AssignGrid
 from .vertical_interpolation import InterpK2P
 from .horizontal_interpolation import Interp2Grid, InterpNAFilter, Interp2Res, Project
-
+from .omega_from_w import OmegaFromW
+from .geopotential_from_height import GeopotentialFromHeight
 
 __all__ = [
     "ClipLateralBoundaries",
@@ -14,4 +15,6 @@ __all__ = [
     "InterpNAFilter",
     "Interp2Res",
     "Project",
+    "OmegaFromW",
+    "GeopotentialFromHeight",
 ]

@@ -43,13 +43,17 @@ class InterpK2P(Filter):
         
         ds = to_meteodatalab(data)
         
-        # make sure HSURF has same time coordinates as other fields
+        # make sure constant variables have same time coordinates as other fields
         time_coords = {k: ds["P"].coords[k] for k in ["ref_time", "lead_time", "valid_time"]}
-        ds["HSURF"] = xr.DataArray(
-            ds["HSURF"].values.repeat(ds["P"].shape[2], axis=2),
-            dims=ds["HSURF"].dims,
-            coords=dict(ds["HSURF"].coords) | time_coords,
-        )
+        for var in ["HSURF", "HHL", "h"]: # for some reason 'HHL' is sometimes decoded as 'h'
+            if var not in ds:
+                continue
+            ds[var] = xr.DataArray(
+                ds[var].values.repeat(ds["P"].shape[2], axis=2),
+                dims=ds[var].dims,
+                coords=dict(ds[var].coords) | time_coords,
+                attrs=ds[var].attrs,
+            )
 
         ds = _interpolate_to_pressure_levels(
             ds,
