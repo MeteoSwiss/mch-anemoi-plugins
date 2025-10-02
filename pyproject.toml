@@ -41,6 +41,7 @@ clip-lateral-boundaries = "mch_anemoi_plugins.transform.filters:ClipLateralBound
 interp-k2p = "mch_anemoi_plugins.transform.filters:InterpK2P"
 assign-grid = "mch_anemoi_plugins.transform.filters:AssignGrid"
 omega-from-w = "mch_anemoi_plugins.transform.filters:OmegaFromW"
+geopotential-from-height = "mch_anemoi_plugins.transform.filters:GeopotentialFromHeight"
 
 [project.entry-points."anemoi.datasets.create.sources"]
 rea-l-ch1-precip = "mch_anemoi_plugins.transform.sources:ReaLCh1Precip"

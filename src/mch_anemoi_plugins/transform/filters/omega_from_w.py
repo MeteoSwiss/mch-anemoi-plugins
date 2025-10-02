@@ -22,7 +22,7 @@ class OmegaFromW(Filter):
         gridfile:
             The path to the grid descriptor file.
         """
-        pass
+        super().__init__()
 
     def forward(self, data: ekd.FieldList) -> ekd.FieldList:
         ds = to_meteodatalab(data)
