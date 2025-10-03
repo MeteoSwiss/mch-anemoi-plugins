@@ -1,6 +1,6 @@
 import earthkit.data as ekd
 from anemoi.transform.filter import Filter
-
+from anemoi.transform.fields import new_field_from_numpy
 G = 9.80665 # m/s^2
 
 
@@ -11,9 +11,10 @@ class GeopotentialFromHeight(Filter):
         out = ekd.SimpleFieldList()
         for field in data:
             if field.metadata("shortName") in ["HHL", "h"]: # h is the destaggered version of HHL for which we have no definition
-                out.append(field.clone(values=field.values * G, shortName="FI", param="FI"))
+                out.append(new_field_from_numpy(field.values * G, template=field, shortName="FI", param="FI"))
             elif field.metadata("shortName") == "HSURF":
-                out.append(field.clone(values=field.values * G, shortName="FIS", param="FIS"))
+                # somehow this is not updating the values...
+                out.append(new_field_from_numpy(field.values * G, template=field, shortName="FIS", param="FIS"))
             else:
                 out.append(field)
         return out
