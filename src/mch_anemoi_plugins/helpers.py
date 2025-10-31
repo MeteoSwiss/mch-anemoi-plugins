@@ -34,7 +34,7 @@ def assign_lonlat(array: xr.DataArray, crs: str) -> xr.DataArray:
             longitude=("x", array.x.data), latitude=("y", array.y.data)
         )
     xv, yv = np.meshgrid(array.x.values, array.y.values)
-    lon, lat = reproject(xv.ravel(), yv.ravel(), crs, CRS.from_user_input("epsg:4326"))
+    lon, lat = reproject(xv, yv, crs, CRS.from_user_input("epsg:4326"))
     geodims = [k for k in array.dims if k in ["x", "y"]]
     if geodims == ["y", "x"]:
         return array.assign_coords(
