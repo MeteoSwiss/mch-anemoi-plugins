@@ -1,6 +1,7 @@
 import io
 from copy import copy
 from typing import Callable
+from typing import Iterator
 
 import earthkit.data as ekd
 import numpy as np
@@ -53,14 +54,14 @@ class FieldListDataSource(data_source.DataSource):
         """
         self.fieldlist = fieldlist
 
-    def _retrieve(self, request: dict):
+    def _retrieve(self, request: dict) -> Iterator[object]:
         """Yield fields matching the request.
 
         Args:
             request (dict): Selection arguments passed to FieldList.sel(**request).
 
-        Yields:
-            ekd.Field: Matching fields from the underlying FieldList.
+        Returns:
+            Iterator[object]: Iterator over matching fields from the underlying FieldList.
         """
         yield from self.fieldlist.sel(**request)
 

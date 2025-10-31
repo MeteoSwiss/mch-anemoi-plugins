@@ -164,7 +164,6 @@ class CustomFieldList(XarrayFieldList):
         Create a CustomFieldList from an xarray dataset.
 
         Args:
-            cls: The class this constructor is called on.
             ds (xr.Dataset): Dataset containing variables to convert.
             flavour (str | dict | None): Flavour configuration to help coordinate guessing.
                 Can be a path to a YAML/JSON file or a pre-loaded dict. If None, defaults are used.
