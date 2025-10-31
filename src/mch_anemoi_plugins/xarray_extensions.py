@@ -10,8 +10,21 @@ import xarray as xr
 import yaml
 import json
 from pyproj import CRS
-
 from mch_anemoi_plugins.helpers import reproject
+
+def assign_lonlat(array: xr.DataArray, crs: str) -> xr.DataArray:
+    if crs == "epsg:4326":
+        # If the CRS is already WGS84, we can directly assign longitude and latitude
+        return array.assign_coords(
+            longitude=("x", array.x.data), latitude=("y", array.y.data)
+        )
+    xv, yv = np.meshgrid(array.x.values, array.y.values)
+    lon, lat = reproject(xv.ravel(), yv.ravel(), crs, CRS.from_user_input("epsg:4326"))
+    geodims = [k for k in array.dims if k in ["x", "y"]]
+    if geodims == ["y", "x"]:
+        return array.assign_coords(longitude=(("y", "x"), lon), latitude=(("y", "x"), lat))
+    return array.assign_coords(longitude=(("x", "y"), lon), latitude=(("x", "y"), lat))
+
 
 class CustomVariable(Variable):
     """A variable class for MCH data, extending the XArrayVariable class with more metadata."""
