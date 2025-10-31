@@ -7,9 +7,9 @@ from anemoi.transform.grids import grid_registry
 
 class AssignGrid(Filter):
     """A filter to assign a grid to the fields in a FieldList.
-    
-    This is a workaround for the lack of proper support for unstructured grids in 
-    earthkit-data. The `new_field_from_grid` function is used to add a callback to the Field 
+
+    This is a workaround for the lack of proper support for unstructured grids in
+    earthkit-data. The `new_field_from_grid` function is used to add a callback to the Field
     object that will get the coordinates from the grid file when needed.
     """
 
@@ -29,4 +29,3 @@ class AssignGrid(Filter):
         return new_fieldlist_from_list(
             [new_field_from_grid(field, self.grid) for field in data]
         )
-

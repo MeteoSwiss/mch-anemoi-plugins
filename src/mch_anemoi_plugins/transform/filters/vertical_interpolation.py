@@ -3,10 +3,11 @@ import logging
 import earthkit.data as ekd
 import xarray as xr
 from anemoi.transform.filter import Filter
+from meteodatalab.operators import vertical_extrapolation
+from meteodatalab.operators import vertical_interpolation
 
-from meteodatalab.operators import vertical_interpolation, vertical_extrapolation
-
-from mch_anemoi_plugins.helpers import to_meteodatalab, from_meteodatalab
+from mch_anemoi_plugins.helpers import from_meteodatalab
+from mch_anemoi_plugins.helpers import to_meteodatalab
 
 SFC_VCOORD_TYPES = [
     "surface",
@@ -16,14 +17,15 @@ SFC_VCOORD_TYPES = [
 
 LOG = logging.getLogger(__name__)
 
+
 class InterpK2P(Filter):
     """A filter to perform vertical interpolation from model to pressure levels."""
 
     def __init__(
-            self,
-            levels: list[float],
-            ext_levels: list[float] = [],
-        ):
+        self,
+        levels: list[float],
+        ext_levels: list[float] = [],
+    ):
         """Initialize the filter.
 
         Parameters
@@ -35,17 +37,22 @@ class InterpK2P(Filter):
         """
 
         super().__init__()
-        
+
         self.levels = levels
         self.ext_levels = ext_levels
 
     def forward(self, data: ekd.FieldList) -> ekd.FieldList:
-        
         ds = to_meteodatalab(data)
-        
+
         # make sure constant variables have same time coordinates as other fields
-        time_coords = {k: ds["P"].coords[k] for k in ["ref_time", "lead_time", "valid_time"]}
-        for var in ["HSURF", "HHL", "h"]: # for some reason 'HHL' is sometimes decoded as 'h'
+        time_coords = {
+            k: ds["P"].coords[k] for k in ["ref_time", "lead_time", "valid_time"]
+        }
+        for var in [
+            "HSURF",
+            "HHL",
+            "h",
+        ]:  # for some reason 'HHL' is sometimes decoded as 'h'
             if var not in ds:
                 continue
             ds[var] = xr.DataArray(
@@ -67,13 +74,12 @@ class InterpK2P(Filter):
         return data
 
 
-
 def _interpolate_to_pressure_levels(
-        ds: dict[str, xr.DataArray],
-        pressure: xr.DataArray,
-        p_lev: list[float],
-        p_ex_lev: list[float],
-    ) -> dict[str, xr.DataArray]:
+    ds: dict[str, xr.DataArray],
+    pressure: xr.DataArray,
+    p_lev: list[float],
+    p_ex_lev: list[float],
+) -> dict[str, xr.DataArray]:
     """Interpolate to pressure levels and extrapolate below the surface where needed."""
 
     # ensure all values at the top-most level are below 5000 hPa
@@ -86,8 +92,10 @@ def _interpolate_to_pressure_levels(
         if field.attrs.get("vcoord_type", "") != "model_level":
             continue
         LOG.info("Interpolating %s to pressure levels %s", name, p_lev)
-        
-        res = vertical_interpolation.interpolate_k2p(field, "linear_in_lnp", pressure, p_lev, "hPa")
+
+        res = vertical_interpolation.interpolate_k2p(
+            field, "linear_in_lnp", pressure, p_lev, "hPa"
+        )
         for p in p_ex_lev:
             idx = {"z": p_lev.index(p)}
             if name == "T":
@@ -100,12 +108,14 @@ def _interpolate_to_pressure_levels(
                 )
             else:
                 extrap_res = vertical_extrapolation.extrapolate_k2p(field, p * 100)
-            res[idx] = res[idx].where(res[idx].notnull(), extrap_res.squeeze().assign_coords(z=p))
+            res[idx] = res[idx].where(
+                res[idx].notnull(), extrap_res.squeeze().assign_coords(z=p)
+            )
         ds[name] = res
-    
+
     # remove surface fields used for extrapolation
     del ds["HSURF"]
     del ds["PS"]
     del ds["T_2M"]
-    
+
     return ds

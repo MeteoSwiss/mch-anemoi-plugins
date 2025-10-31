@@ -1,13 +1,13 @@
 import earthkit.data as ekd
 import xarray as xr
-from anemoi.transform.fields import new_field_from_numpy
-from anemoi.transform.fields import new_fieldlist_from_list
 from anemoi.transform.filter import Filter
 
-from mch_anemoi_plugins.helpers import to_meteodatalab, from_meteodatalab
+from mch_anemoi_plugins.helpers import from_meteodatalab
+from mch_anemoi_plugins.helpers import to_meteodatalab
 
 G = 9.80665
 R_D = 287.053
+
 
 class OmegaFromW(Filter):
     """A filter to convert vertical velocity in m/s to omega in Pa/s."""
@@ -33,6 +33,7 @@ class OmegaFromW(Filter):
 def omega_from_w(w: xr.DataArray, t: xr.DataArray, p: xr.DataArray) -> xr.DataArray:
     """Convert vertical velocity in m/s to omega in Pa/s."""
     from meteodatalab import metadata
+
     rho = p / (R_D * t)
     out = -w * rho * G
     out.attrs = metadata.override(w.attrs["metadata"], shortName="OMEGA")

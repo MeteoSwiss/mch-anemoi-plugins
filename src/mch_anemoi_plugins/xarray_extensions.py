@@ -1,29 +1,17 @@
+import json
 from typing import Any
 
+import numpy as np
+import xarray as xr
+import yaml
 from anemoi.datasets.create.sources.xarray_support.field import XArrayField
 from anemoi.datasets.create.sources.xarray_support.fieldlist import XarrayFieldList
 from anemoi.datasets.create.sources.xarray_support.flavour import CoordinateGuesser
 from anemoi.datasets.create.sources.xarray_support.time import Time
 from anemoi.datasets.create.sources.xarray_support.variable import Variable
-import numpy as np
-import xarray as xr
-import yaml
-import json
 from pyproj import CRS
-from mch_anemoi_plugins.helpers import reproject
 
-def assign_lonlat(array: xr.DataArray, crs: str) -> xr.DataArray:
-    if crs == "epsg:4326":
-        # If the CRS is already WGS84, we can directly assign longitude and latitude
-        return array.assign_coords(
-            longitude=("x", array.x.data), latitude=("y", array.y.data)
-        )
-    xv, yv = np.meshgrid(array.x.values, array.y.values)
-    lon, lat = reproject(xv.ravel(), yv.ravel(), crs, CRS.from_user_input("epsg:4326"))
-    geodims = [k for k in array.dims if k in ["x", "y"]]
-    if geodims == ["y", "x"]:
-        return array.assign_coords(longitude=(("y", "x"), lon), latitude=(("y", "x"), lat))
-    return array.assign_coords(longitude=(("x", "y"), lon), latitude=(("x", "y"), lat))
+from mch_anemoi_plugins.helpers import reproject
 
 
 class CustomVariable(Variable):
@@ -173,10 +161,18 @@ class CustomFieldList(XarrayFieldList):
         source: str = "",
     ) -> "CustomFieldList":
         """
-        Create an CustomFieldList from an xarray dataset.
+        Create a CustomFieldList from an xarray dataset.
+
+        Args:
+            cls: The class this constructor is called on.
+            ds (xr.Dataset): Dataset containing variables to convert.
+            flavour (str | dict | None): Flavour configuration to help coordinate guessing.
+                Can be a path to a YAML/JSON file or a pre-loaded dict. If None, defaults are used.
+            proj_string (str | None): Projection/CRS string attached to variables (e.g., "epsg:2056").
+            source (str): Source identifier stored on produced fields for provenance.
 
         Returns:
-            CustomFieldList: An instance of CustomFieldList populated with variables from the dataset.
+            CustomFieldList: Container of fields built from the dataset.
         """
         variables = []
         if isinstance(flavour, str):
