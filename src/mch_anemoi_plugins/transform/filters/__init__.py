@@ -1,10 +1,13 @@
 from .clipping import ClipLateralBoundaries
 from .destaggering import Destagger
-from .grid import AssignGrid
-from .vertical_interpolation import InterpK2P
-from .horizontal_interpolation import Interp2Grid, InterpNAFilter, Interp2Res, Project
-from .omega_from_w import OmegaFromW
 from .geopotential_from_height import GeopotentialFromHeight
+from .grid import AssignGrid
+from .horizontal_interpolation import Interp2Grid
+from .horizontal_interpolation import Interp2Res
+from .horizontal_interpolation import InterpNAFilter
+from .horizontal_interpolation import Project
+from .omega_from_w import OmegaFromW
+from .vertical_interpolation import InterpK2P
 
 __all__ = [
     "ClipLateralBoundaries",

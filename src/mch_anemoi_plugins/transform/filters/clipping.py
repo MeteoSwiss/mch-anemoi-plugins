@@ -1,5 +1,4 @@
 import earthkit.data as ekd
-import numpy as np
 import xarray as xr
 from anemoi.transform.fields import new_field_from_numpy
 from anemoi.transform.fields import new_fieldlist_from_list
@@ -42,8 +41,6 @@ class ClipLateralBoundaries(Filter):
             )
             result.append(field)
         return new_fieldlist_from_list(result)
-
-
 
 
 def _clip_field_lateral_boundaries(

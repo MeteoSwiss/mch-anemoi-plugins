@@ -5,7 +5,7 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 from anemoi.transform.filter import Filter
-from earthkit.data.indexing.fieldlist import FieldArray  
+from earthkit.data.indexing.fieldlist import FieldArray
 from pyproj import CRS
 from scipy.interpolate import NearestNDInterpolator
 from scipy.spatial import cKDTree
@@ -34,7 +34,7 @@ def merge_fieldlist(field_array: FieldArray) -> xr.Dataset:
 def _interp2grid(
     array: xr.Dataset, example_field, template: Union[xr.Dataset, str], method="linear"
 ) -> xr.Dataset:
-    from gridefix_process import grid_interp # type: ignore
+    from gridefix_process import grid_interp  # type: ignore
 
     if isinstance(template, str) and template.startswith("$file:"):
         template = xr.open_zarr(template.removeprefix("$file:"))
@@ -73,7 +73,7 @@ def _interp_na(array: xr.Dataset, param: str) -> xr.Dataset:
 def _interp2res(
     array: xr.Dataset, example_field, resolution: Union[str, int], target_crs=None
 ) -> xr.Dataset:
-    from gridefix_process import grid_interp # type: ignore
+    from gridefix_process import grid_interp  # type: ignore
 
     resolution_km = float(re.sub(r"[^0-9.\-]", "", str(resolution)))
     target_crs = target_crs or example_field.crs
@@ -160,7 +160,6 @@ def interp2points(
     return array_reduced
 
 
-
 class BaseXarrayFilter(Filter):
     api_version = "1.0.0"
     schema = None
@@ -177,7 +176,6 @@ class BaseXarrayFilter(Filter):
     def apply_filter(self, ds: xr.Dataset, example_field) -> xr.Dataset:
         """Override in subclass with the actual transformation."""
         raise NotImplementedError
-
 
 
 class Interp2Grid(BaseXarrayFilter):

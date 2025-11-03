@@ -1,11 +1,14 @@
 import earthkit.data as ekd
-from anemoi.transform.filters import filter_registry
-from meteodatalab import data_source, grib_decoder
-from numpy.testing import assert_array_equal
 import numpy as np
+from anemoi.transform.filters import filter_registry
+from meteodatalab import data_source
+from meteodatalab import grib_decoder
+from numpy.testing import assert_array_equal
 
-from mch_anemoi_plugins.transform.filters import ClipLateralBoundaries, Destagger, InterpK2P
-from mch_anemoi_plugins.helpers import to_meteodatalab, from_meteodatalab
+from mch_anemoi_plugins.helpers import from_meteodatalab
+from mch_anemoi_plugins.transform.filters import ClipLateralBoundaries
+from mch_anemoi_plugins.transform.filters import Destagger
+
 
 def test_clip_lateral_boundaries(data_dir):
     from meteodatalab.operators.clip import clip_lateral_boundary_strip
@@ -43,7 +46,6 @@ def test_destagger(data_dir):
     ds = grib_decoder.load(source, {"param": ["W"]})
     ds_desired = {k: destagger(v, param_dim[k]) for k, v in ds.items()}
     desired = from_meteodatalab(ds_desired)
-
 
     fieldlist = ekd.from_source("file", fn)
     actual = filter.forward(fieldlist)
