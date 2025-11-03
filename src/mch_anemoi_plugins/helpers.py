@@ -28,14 +28,12 @@ def replace(instance, **kwargs):
 
 
 def assign_lonlat(array: xr.DataArray, crs: str) -> xr.DataArray:
-    if crs == "epsg:4326":
-        # If the CRS is already WGS84, we can directly assign longitude and latitude
-        return array.assign_coords(
-            longitude=("x", array.x.data), latitude=("y", array.y.data)
-        )
     xv, yv = np.meshgrid(array.x.values, array.y.values)
     lon, lat = reproject(xv, yv, crs, CRS.from_user_input("epsg:4326"))
-    geodims = [k for k in array.dims if k in ["x", "y"]]
+    geodims = [k for k in array.dims if k in ["x", "y", "station", "cell"]]
+    if len(geodims) < 2 and crs == "epsg:4326" and "x" in array.coords:
+        # indexed by point and CRS WGS84: just rename coords
+        return array.assign_coords(longitude=array.x.values, latitude=array.y.values)
     if geodims == ["y", "x"]:
         return array.assign_coords(
             longitude=(("y", "x"), lon), latitude=(("y", "x"), lat)

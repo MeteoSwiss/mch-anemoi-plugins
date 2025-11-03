@@ -72,7 +72,7 @@ class DataProviderSource(Source):
         super().__init__(
             context, source, param=param, retriever_kwargs=retriever_kwargs
         )
-        self.provider = default_provider()
+        self.provider = default_provider(cache_location="/store_new/mch/msclim/pronos")
         self.source = source
         self.param = param
         self.retriever_kwargs = retriever_kwargs
