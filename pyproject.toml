@@ -23,6 +23,7 @@ dependencies = [
     "eccodes==2.39.1",
     "meteodata-lab>=0.5.0",
     "numpy<3",
+    "weathermart"
 ]
 
 
@@ -45,14 +46,14 @@ geopotential-from-height = "mch_anemoi_plugins.transform.filters:GeopotentialFro
 
 [project.entry-points."anemoi.datasets.create.sources"]
 rea-l-ch1-precip = "mch_anemoi_plugins.transform.sources:ReaLCh1Precip"
+station = "mch_anemoi_plugins.transform.sources:SURFACE"
+satellite = "mch_anemoi_plugins.transform.sources:SATELLITE"
+dem = "mch_anemoi_plugins.transform.sources:NASADEM"
+opera = "mch_anemoi_plugins.transform.sources:OPERA"
 
 [project.optional-dependencies]
 gridefix = [
     "gridefix-process>=3.0.2",
-]
-
-weathermart = [
-    "weathermart",
 ]
 
 [build-system]
