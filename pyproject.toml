@@ -19,7 +19,7 @@ dependencies = [
     "pyyaml",
     "omegaconf>=2.3.0,<3",
     "cf-units>=3.2.0,<4",
-    "earthkit-data>=0.12.0,<0.14",
+    "earthkit-data>=0.14,<0.15",
     "eccodes==2.39.1",
     "meteodata-lab>=0.5.0",
     "numpy<3",
@@ -45,6 +45,7 @@ geopotential-from-height = "mch_anemoi_plugins.transform.filters:GeopotentialFro
 
 [project.entry-points."anemoi.datasets.create.sources"]
 rea-l-ch1-precip = "mch_anemoi_plugins.transform.sources:ReaLCh1Precip"
+rea-l-ch1 = "mch_anemoi_plugins.transform.sources:realch1_source_router"
 
 [project.optional-dependencies]
 gridefix = [
