@@ -97,7 +97,9 @@ def _meteodalab_ds_to_fieldlist(ds: dict[str, xr.DataArray]) -> ekd.FieldList:
             grib_decoder.save(
                 da, buffer, bits_per_value=32
             )  # TODO: find out why we need 32 and 16 leads to precision loss
-
+            
+        del ds
+        
         # reset the buffer position to the beginning
         buffer.seek(0)
 
