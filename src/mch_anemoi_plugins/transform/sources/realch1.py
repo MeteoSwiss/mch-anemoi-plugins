@@ -13,7 +13,8 @@ import earthkit.data as ekd
 import xarray as xr
 from anemoi.transform.filter import Filter
 
-from meteodatalab.operators import vertical_interpolation, vertical_extrapolation
+from meteodatalab.operators import vertical_interpolation, vertical_extrapolation, destagger
+from meteodatalab import data_source, grib_decoder, metadata
 
 from mch_anemoi_plugins.helpers import to_meteodatalab, from_meteodatalab
 from datetime import datetime, timedelta
@@ -106,11 +107,12 @@ BASE_FDB_REQUEST = {
     "type": "cf",
 }
 
-
+ICON_CONSTANTS_PATH = "/users/oprusers/osm/opr.inn/data/ICON_INPUT/ICON-CH1-EPS/lfff00000000c"
 ICON_GRID_PATH = "/scratch/mch/jenkins/icon/pool/data/ICON/mch/grids/icon-1/icon_grid_0001_R19B08_mch.nc"
 
 
 LOG = logging.getLogger(__name__)
+logging.getLogger("meteodatalab").setLevel(logging.WARNING)
 
 def realch1_source_router(context: Any, request: dict[str, Any], **kwargs: dict[str, Any]) -> Source:
     """Route to the appropriate REA-L-CH1 data source type based on the requested variables."""
@@ -132,7 +134,7 @@ def realch1_source_router(context: Any, request: dict[str, Any], **kwargs: dict[
         case "accum-from-start":
             return _AccumulationFromStart(context, request, **kwargs)
         case "aggr-avg":
-            return _AggregationAverage(context, request, **kwargs)
+            raise NotImplementedError("Aggregation average source not yet implemented.")
         case _:
             raise ValueError(f"Unsupported variable type: {VARIABLES_PROPERTIES[request['param']]['type']}")
 
@@ -173,9 +175,18 @@ class ReaLCh1Base(Source):
             self.request["levtype"] = "ml"
             self.request["levelist"] = "1/to/81"
             self._processing_request = {"levtype": request["levtype"], "levelist": request["levelist"]}
+
+            if "FI" in request["param"]:
+                request["param"].remove("FI")
+                self._processing_request["param"] = "FI"
         
         self.grid = grid_registry.from_config({"icon": {"path": ICON_GRID_PATH}})
-        # self.mixins_kwargs = kwargs
+
+        # pre-load constants
+        fds = data_source.FileDataSource(datafiles=[ICON_CONSTANTS_PATH])
+        self.constants = grib_decoder.load(fds, {"param": ["HSURF", "HHL"]})
+        self.constants["h"] = destagger.destagger(self.constants["HHL"], "z")
+        self.constants["FI"] = geopotential_from_height(self.constants["h"])
 
     def assign_grid(self, fl: ekd.FieldList) -> ekd.FieldList:
         """Assign the ICON grid to the fields in the FieldList.
@@ -199,17 +210,34 @@ class ReaLCh1Base(Source):
     def process_data(self, fl: ekd.FieldList) -> ekd.FieldList:
 
         out_fl = ekd.SimpleFieldList()
+        time_keys = set()
         for paramgroup in fl.group_by("param"):
             date, time, step = set(paramgroup.metadata("date", "time", "step")).pop()
             if self._processing_request and self._processing_request["levtype"] == "pl":
-                pressure_fields = ekd.from_source("fdb", self.request | {
-                        "param": 500001,
-                        "date": date,
-                        "time": time,
-                        "step": step,
-                    }
-                )
-                pressure_fields = next(iter(to_meteodatalab(pressure_fields).values()))
+                if (date, time, step) not in time_keys:
+                    pressure_fields = ekd.from_source("fdb", self.request | {
+                            "param": 500001,
+                            "date": date,
+                            "time": time,
+                            "step": step,
+                        }
+                    )
+                    pressure_fields = next(iter(to_meteodatalab(pressure_fields).values()))
+
+                    if "FI" in self._processing_request.get("param", []):
+                        now = datetime.now()
+                        fi_pl = _interpolate_to_pressure_levels(
+                            {"FI": self.constants["FI"].assign_coords(pressure_fields.coords)},
+                            pressure_fields,
+                            [float(lvl) for lvl in self._processing_request["levelist"]],
+                        )
+                        fi_pl = from_meteodatalab(fi_pl)
+                        elapsed = (datetime.now() - now).total_seconds()
+                        LOG.info("Interpolation to pressure levels for param=FI, date=%s, time=%s, step=%s completed in %s seconds.", date, time, step, elapsed)
+                        for field in fi_pl.order_by("valid_time"):
+                            out_fl.append(field)
+
+                now = datetime.now()
                 paramgroup = to_meteodatalab(paramgroup)
                 paramgroup = _interpolate_to_pressure_levels(
                     paramgroup,
@@ -217,9 +245,14 @@ class ReaLCh1Base(Source):
                     [float(lvl) for lvl in self._processing_request["levelist"]],
                 )
                 paramgroup = from_meteodatalab(paramgroup)
+                elapsed = (datetime.now() - now).total_seconds()
+                LOG.info("Interpolation to pressure levels for param=%s, date=%s, time=%s, step=%s completed in %s seconds.", paramgroup[0].metadata("param"), date, time, step, elapsed)
             for field in paramgroup.order_by("valid_time"):
                 field = override_time_metadata(field)
                 out_fl.append(field)
+
+            time_keys.add((date, time, step))
+
         return out_fl
 
 
@@ -228,7 +261,7 @@ class ReaLCh1Base(Source):
         self._last_request = request
         LOG.info("Submitting FDB request: %s", request)
         now = datetime.now()
-        fl = ekd.from_source("fdb", request)
+        fl = ekd.from_source("fdb", request, stream=True)
         LOG.info("FDB request completed in %s seconds.", (datetime.now() - now).total_seconds())
         fl = self.process_data(fl)
         fl = self.assign_grid(fl)
@@ -352,94 +385,6 @@ class _AccumulationFromStart(ReaLCh1Base):
         return accum_fl
 
 
-# class _VerticalInterpolationMixin(ReaLCh1Base):
-#     """Vertical interpolation mixin for REA-L-CH1 data source."""
-
-#     @property
-#     def target_levels(self) -> list[float]:
-#         try:
-#             return self.mixins_kwargs["target_levels"]
-#         except KeyError:
-#             raise ValueError("target_levels must be provided for vertical interpolation.")
-
-#     @property
-#     def target_levels_units(self) -> str:
-#         try:
-#             return self.mixins_kwargs["target_levels_units"]
-#         except KeyError:
-#             raise ValueError("target_levels_units must be provided for vertical interpolation.")
-
-#     def process_data(self, fl: ekd.FieldList) -> ekd.FieldList:
-#         fl = super().process_data(fl)
-#         out_fl = ekd.SimpleFieldList()
-#         for paramgroup in fl.group_by("param"):
-#             pressure_fields = fl.sel(param=VARIABLES_PROPERTIES["P"]["paramId"])
-#             if len(pressure_fields) == 0:
-#                 raise ValueError("Cannot find pressure levels fields required for vertical interpolation.")
-#             for field in paramgroup.order_by("valid_time"):
-#                 pressure_field = pressure_fields.sel(valid_time=field.metadata("valid_time"))
-#                 if len(pressure_field) == 0:
-#                     raise ValueError(
-#                         f"Cannot find pressure levels field for valid_time "
-#                         f"{field.metadata('valid_time')} required for vertical interpolation."
-#                     )
-#                 interpolated_values = interpolate_k2p_linear_in_lnp_parallel(
-#                     field.values,
-#                     pressure_field.values,
-#                     self.target_levels,
-#                     self.target_levels_units,
-#                 )
-#                 out_fl.append(field.copy(values=interpolated_values))
-#         return out_fl
-    
-    
-# class _AggregationAverage(ReaLCh1Base):
-#     """Aggregation average variable source."""
-
-#     def __init__(self, context, request, aggregation_period_minutes: int):
-#         self.aggregation_period_minutes = aggregation_period_minutes
-#         super().__init__(context, request)
-
-#     @staticmethod
-#     def time_request(dt: datetime) -> str:
-#         """Defines the time-related keys for the FDB request."""
-#         out = {}
-#         out["date"] = dt.strftime("%Y%m%d")
-#         out["time"] = "0000"
-#         out["step"] = int((dt - dt.replace(hour=0, minute=0)).total_seconds() // 3600)
-#         return out
-    
-#     def prepare_requests(self, dates: list[datetime]) -> list[dict[str, Any]]:
-#         requests = []
-#         for date in dates:
-#             time_request = self.time_request(date)
-#             requests.append(self.request | time_request)
-#         return requests
-
-
-def get_sources(requests: dict[str, Any]) -> ekd.FieldList:
-    """Get data from FDB for the given request and dates.
-    
-
-
-    Parameters
-    ----------
-    requests : dict[str, Any]
-        The FDB requests to load.
-    
-    Returns
-    -------
-    ekd.FieldList
-        The loaded data with adjusted metadata.
-    """
-    fl = ekd.SimpleFieldList()
-    for request in requests:
-        fl += ekd.from_source("fdb", request)
-    # if len(fl) == 0:
-        # raise ValueError(f"No data found for requests: {requests}")
-    breakpoint()
-    return fl
-
 def override_time_metadata(field: ekd.Field) -> ekd.Field:
     """Override time-related metadata of a field.
 
@@ -487,11 +432,29 @@ def _interpolate_to_pressure_levels(
         p_lev: list[float],
     ) -> dict[str, xr.DataArray]:
     """Interpolate to pressure levels and extrapolate below the surface where needed."""
-
     pressure[{"z": 0}] = pressure[{"z": 0}].where(
         pressure[{"z": 0}] < 5000, 5000 - 1e-5
     )
-    res = {}
     for name, field in fields.items():
-        res[name] = vertical_interpolation.interpolate_k2p(field, "linear_in_lnp", pressure, p_lev, "hPa")
-    return res
+        fields[name] = vertical_interpolation.interpolate_k2p(field, "linear_in_lnp", pressure, p_lev, "hPa")
+    return fields
+
+
+
+G = 9.80665
+R_D = 287.053
+
+
+def omega_from_w(w: xr.DataArray, t: xr.DataArray, p: xr.DataArray) -> xr.DataArray:
+    """Convert vertical velocity in m/s to omega in Pa/s."""
+    rho = p / (R_D * t)
+    out = -w * rho * G
+    out.attrs |= metadata.override(w.attrs["metadata"], shortName="OMEGA")
+    return out
+
+
+def geopotential_from_height(h: xr.DataArray) -> xr.DataArray:
+    """Compute geopotential from height."""
+    out = h * G
+    out.attrs |= metadata.override(h.attrs["metadata"], shortName="FI")
+    return out

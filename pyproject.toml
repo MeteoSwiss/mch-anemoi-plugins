@@ -47,10 +47,10 @@ geopotential-from-height = "mch_anemoi_plugins.transform.filters:GeopotentialFro
 [project.entry-points."anemoi.datasets.create.sources"]
 rea-l-ch1-precip = "mch_anemoi_plugins.transform.sources:ReaLCh1Precip"
 rea-l-ch1 = "mch_anemoi_plugins.transform.sources:realch1_source_router"
-station = "mch_anemoi_plugins.transform.sources:SURFACE"
-satellite = "mch_anemoi_plugins.transform.sources:SATELLITE"
-dem = "mch_anemoi_plugins.transform.sources:NASADEM"
-opera = "mch_anemoi_plugins.transform.sources:OPERA"
+# station = "mch_anemoi_plugins.transform.sources:SURFACE"
+# satellite = "mch_anemoi_plugins.transform.sources:SATELLITE"
+# dem = "mch_anemoi_plugins.transform.sources:NASADEM"
+# opera = "mch_anemoi_plugins.transform.sources:OPERA"
 
 [project.optional-dependencies]
 gridefix = [
