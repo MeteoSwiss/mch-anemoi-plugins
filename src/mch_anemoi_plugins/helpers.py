@@ -40,10 +40,20 @@ def assign_lonlat(array: xr.DataArray, crs: str) -> xr.DataArray:
         return array.assign_coords(longitude=array.x.values, latitude=array.y.values)
     if geodims == ["y", "x"]:
         xv, yv = np.meshgrid(array.x.values, array.y.values)
-        lon, lat = (xv, yv) if crs == "epsg:4326" else reproject(xv, yv, crs, CRS.from_user_input("epsg:4326"))
-        return array.assign_coords(longitude=(("y", "x"), lon), latitude=(("y", "x"), lat))
+        lon, lat = (
+            (xv, yv)
+            if crs == "epsg:4326"
+            else reproject(xv, yv, crs, CRS.from_user_input("epsg:4326"))
+        )
+        return array.assign_coords(
+            longitude=(("y", "x"), lon), latitude=(("y", "x"), lat)
+        )
     xv, yv = np.meshgrid(array.x.values, array.y.values, indexing="ij")
-    lon, lat = reproject(xv, yv, crs, CRS.from_user_input("epsg:4326")) if crs != "epsg:4326" else (xv, yv)
+    lon, lat = (
+        reproject(xv, yv, crs, CRS.from_user_input("epsg:4326"))
+        if crs != "epsg:4326"
+        else (xv, yv)
+    )
     return array.assign_coords(longitude=(("x", "y"), lon), latitude=(("x", "y"), lat))
 
 
@@ -70,7 +80,9 @@ class FieldListDataSource(data_source.DataSource):
         yield from self.fieldlist.sel(**request)
 
 
-def meteodatalab_wrapper(func: Callable[..., dict[str, xr.DataArray]], ) -> Callable[[ekd.FieldList], ekd.FieldList]:
+def meteodatalab_wrapper(
+    func: Callable[..., dict[str, xr.DataArray]],
+) -> Callable[[ekd.FieldList], ekd.FieldList]:
     """Decorator to wrap a function that processes an ekd.FieldList."""
 
     def inner(fieldlist: ekd.FieldList) -> ekd.FieldList:
@@ -98,8 +110,9 @@ def _meteodalab_ds_to_fieldlist(ds: dict[str, xr.DataArray]) -> ekd.FieldList:
         for da in ds.values():
             if "z" in da.dims and da["z"].size == 1 and bool(da["z"].values is None):
                 da = da.squeeze("z", drop=True)
-            grib_decoder.save(da, buffer,
-                              bits_per_value=32)  # TODO: find out why we need 32 and 16 leads to precision loss
+            grib_decoder.save(
+                da, buffer, bits_per_value=32
+            )  # TODO: find out why we need 32 and 16 leads to precision loss
 
         # reset the buffer position to the beginning
         buffer.seek(0)

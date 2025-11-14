@@ -16,22 +16,44 @@ from mch_anemoi_plugins.xarray_extensions import CustomFieldList
 
 def merge_fieldlist(field_array: FieldArray) -> xr.Dataset:
     """Merge a FieldArray into a single xarray.Dataset grouped by forecast_reference_time."""
-    time_dim = "time" if "time" in field_array[
-        0].selection.dims else "forecast_reference_time" if "forecast_reference_time" in field_array[
-            0].selection.dims else None
+    time_dim = (
+        "time"
+        if "time" in field_array[0].selection.dims
+        else "forecast_reference_time"
+        if "forecast_reference_time" in field_array[0].selection.dims
+        else None
+    )
     if time_dim is None and "time" in field_array[0].selection.coords:
         time_dim = "time"
     times = sorted(set(field.metadata(time_dim) for field in field_array))
     merged = []
     for t in times:
-        datasets = [field.selection.to_dataset() for field in field_array if field.metadata(time_dim) == t]
+        datasets = [
+            field.selection.to_dataset()
+            for field in field_array
+            if field.metadata(time_dim) == t
+        ]
         merged.append(xr.merge(datasets))
     return xr.concat(merged, dim=time_dim)
 
 
-def _interp2grid(array: xr.Dataset, example_field, template: Union[xr.Dataset, str]) -> xr.Dataset:
-    time_dim = "time" if "time" in array.dims else "forecast_reference_time" if "forecast_reference_time" in array.dims else None
-    point_dim = "cell" if "cell" in array.dims else "station" if "station" in array.dims else None
+def _interp2grid(
+    array: xr.Dataset, example_field, template: Union[xr.Dataset, str]
+) -> xr.Dataset:
+    time_dim = (
+        "time"
+        if "time" in array.dims
+        else "forecast_reference_time"
+        if "forecast_reference_time" in array.dims
+        else None
+    )
+    point_dim = (
+        "cell"
+        if "cell" in array.dims
+        else "station"
+        if "station" in array.dims
+        else None
+    )
     if point_dim is not None:
         method = "idw"
         kwargs = {"k": 4}
@@ -45,10 +67,17 @@ def _interp2grid(array: xr.Dataset, example_field, template: Union[xr.Dataset, s
     intermediate = array
     if "station" in array.dims:
         intermediate = intermediate.rename({"station": "cell"})
-    ds_from_array = intermediate.assign_attrs({"source": example_field.source, "crs": example_field.crs})
-    interpolated_array = (interp2grid(ds_from_array, dst_grid=template, method=method, **kwargs).chunk("auto"))
+    ds_from_array = intermediate.assign_attrs(
+        {"source": example_field.source, "crs": example_field.crs}
+    )
+    interpolated_array = interp2grid(
+        ds_from_array, dst_grid=template, method=method, **kwargs
+    ).chunk("auto")
     interpolated_array = interpolated_array.assign_attrs({"crs": template.crs})
-    if "longitude" not in interpolated_array.coords or "latitude" not in interpolated_array.coords:
+    if (
+        "longitude" not in interpolated_array.coords
+        or "latitude" not in interpolated_array.coords
+    ):
         interpolated_array = assign_lonlat(interpolated_array, template.crs)
     for v in interpolated_array.data_vars:
         interpolated_array[v].attrs["crs"] = template.crs
@@ -65,8 +94,16 @@ def _interp_na(array: xr.Dataset, param: str) -> xr.Dataset:
     return array
 
 
-def _interp2res(array: xr.Dataset, example_field, resolution: Union[str, int], target_crs=None) -> xr.Dataset:
-    point_dim = "cell" if "cell" in array.dims else "station" if "station" in array.dims else None
+def _interp2res(
+    array: xr.Dataset, example_field, resolution: Union[str, int], target_crs=None
+) -> xr.Dataset:
+    point_dim = (
+        "cell"
+        if "cell" in array.dims
+        else "station"
+        if "station" in array.dims
+        else None
+    )
     if point_dim is not None:
         method = "idw"
         kwargs = {"k": point_dim}
@@ -89,16 +126,27 @@ def _interp2res(array: xr.Dataset, example_field, resolution: Union[str, int], t
             [0, 0],
             CRS.from_user_input("epsg:2056"),
             CRS.from_user_input(target_crs),
-        ))[0][0]
+        )
+    )[0][0]
     template = xr.Dataset(
         coords={
-            "x": (np.arange(_xmin, _xmax, resolution_in_crs_units, dtype=np.float64) + resolution_in_crs_units / 2),
-            "y": (np.arange(_ymin, _ymax, resolution_in_crs_units, dtype=np.float64) + resolution_in_crs_units / 2),
+            "x": (
+                np.arange(_xmin, _xmax, resolution_in_crs_units, dtype=np.float64)
+                + resolution_in_crs_units / 2
+            ),
+            "y": (
+                np.arange(_ymin, _ymax, resolution_in_crs_units, dtype=np.float64)
+                + resolution_in_crs_units / 2
+            ),
         },
         attrs={"crs": target_crs},
     )
-    ds_from_array = array.assign_attrs({"source": example_field.source, "crs": example_crs})
-    interpolated_array = (interp2grid(ds_from_array, dst_grid=template, method=method, **kwargs).chunk("auto"))
+    ds_from_array = array.assign_attrs(
+        {"source": example_field.source, "crs": example_crs}
+    )
+    interpolated_array = interp2grid(
+        ds_from_array, dst_grid=template, method=method, **kwargs
+    ).chunk("auto")
     interpolated_array = assign_lonlat(interpolated_array, target_crs)
     interpolated_array = interpolated_array.interpolate_na("x")
     interpolated_array.attrs["resolution"] = resolution_km
@@ -113,9 +161,15 @@ class BaseXarrayFilter(Filter):
     def forward(self, field_array: FieldArray) -> FieldArray:
         """Merge fields, apply the filter, and return a new FieldArray."""
         example = field_array[0]
-        merged = field_array.ds if hasattr(field_array, "ds") else merge_fieldlist(field_array)
+        merged = (
+            field_array.ds
+            if hasattr(field_array, "ds")
+            else merge_fieldlist(field_array)
+        )
         result = self.apply_filter(merged, example)
-        return CustomFieldList.from_xarray(result, proj_string=example.crs, source=example.source)
+        return CustomFieldList.from_xarray(
+            result, proj_string=example.crs, source=example.source
+        )
 
     def apply_filter(self, ds: xr.Dataset, example_field) -> xr.Dataset:
         """Override in subclass with the actual transformation."""
@@ -150,4 +204,6 @@ class Interp2Res(BaseXarrayFilter):
         self.target_crs = target_crs
 
     def apply_filter(self, ds: xr.Dataset, example_field) -> xr.Dataset:
-        return _interp2res(ds, example_field, resolution=self.resolution, target_crs=self.target_crs)
+        return _interp2res(
+            ds, example_field, resolution=self.resolution, target_crs=self.target_crs
+        )

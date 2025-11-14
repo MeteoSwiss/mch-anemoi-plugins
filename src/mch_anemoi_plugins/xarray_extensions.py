@@ -58,7 +58,9 @@ class CustomVariable(Variable):
         )
         self.proj_string = proj_string
         self.source = source
-        self._metadata = {k.replace("variable", "param"): v for k, v in self._metadata.items()}
+        self._metadata = {
+            k.replace("variable", "param"): v for k, v in self._metadata.items()
+        }
 
     def __getitem__(self, i: int) -> "CustomField":
         if i >= self.length:
@@ -69,7 +71,6 @@ class CustomVariable(Variable):
 
 
 class CustomField(XArrayField):
-
     @property
     def source(self) -> str:
         return self.owner.source
@@ -86,7 +87,9 @@ class CustomField(XArrayField):
     def grid_coords(self) -> np.ndarray:
         std_grid = ["x", "y", "longitude", "latitude"]
         aux = ["cell", "station"]
-        return np.intersect1d(std_grid + aux, list(self.selection.coords) + list(self.selection.dims))
+        return np.intersect1d(
+            std_grid + aux, list(self.selection.coords) + list(self.selection.dims)
+        )
 
     @property
     def not_grid_dim(self) -> list[str]:
@@ -100,19 +103,28 @@ class CustomField(XArrayField):
         For projected CRS, it computes the minimal difference in x and y (converted to meters)
         and rounds it to a kilometer value.
         """
-        spatial_dim = ["x", "y"
-                       ] if "x" in self.selection.dims and "y" in self.selection.dims else ["longitude", "latitude"]
+        spatial_dim = (
+            ["x", "y"]
+            if "x" in self.selection.dims and "y" in self.selection.dims
+            else ["longitude", "latitude"]
+        )
         x, y = spatial_dim
         valid_crs = CRS.from_user_input(self.selection.attrs.get("crs", self.crs))
-        valid_crs = CRS.from_user_input("epsg:2056")  # force Swiss projection for meters
-        minimal = self.selection.isel({d: 0 for d in self.not_grid_dim}).rio.write_crs(valid_crs)
+        valid_crs = CRS.from_user_input(
+            "epsg:2056"
+        )  # force Swiss projection for meters
+        minimal = self.selection.isel({d: 0 for d in self.not_grid_dim}).rio.write_crs(
+            valid_crs
+        )
         if minimal.rio.crs.is_projected:
             minx = np.diff(np.sort(minimal[x].to_numpy())).min()
             miny = np.diff(np.sort(minimal[y].to_numpy())).min()
             res_m = np.array([minx, miny]) * minimal.rio.crs.units_factor[1]
         else:
             res_deg = np.array(minimal.rio.resolution())
-            scale = np.diff(reproject([0, 1], [0, 0], valid_crs, CRS.from_user_input("epsg:2056")))[0][0]
+            scale = np.diff(
+                reproject([0, 1], [0, 0], valid_crs, CRS.from_user_input("epsg:2056"))
+            )[0][0]
             res_m = res_deg * scale
         res_km = np.round(res_m / 1e3, 0)
         return f"{res_km[0].item()}km"
@@ -124,7 +136,11 @@ class CustomField(XArrayField):
     @property
     def bounding_box(self) -> tuple:
         # (min_x, min_y, max_x, max_y)
-        spatial_dim = ["x", "y"] if {"x", "y"}.issubset(self.selection.dims) else ["longitude", "latitude"]
+        spatial_dim = (
+            ["x", "y"]
+            if {"x", "y"}.issubset(self.selection.dims)
+            else ["longitude", "latitude"]
+        )
         x, y = spatial_dim
         minimal = self.selection.isel({d: 0 for d in self.not_grid_dim})
         return (
@@ -136,17 +152,22 @@ class CustomField(XArrayField):
 
 
 class CustomFieldList(XarrayFieldList):
-
     @classmethod
-    def from_xarray(cls,
-                    ds: xr.Dataset,
-                    flavour: str | dict | None = None,
-                    proj_string: str | None = None,
-                    source: str = "") -> "CustomFieldList":
+    def from_xarray(
+        cls,
+        ds: xr.Dataset,
+        flavour: str | dict | None = None,
+        proj_string: str | None = None,
+        source: str = "",
+    ) -> "CustomFieldList":
         variables: list[CustomVariable] = []
         if isinstance(flavour, str):
             with open(flavour) as f:
-                flavour = yaml.safe_load(f) if flavour.endswith((".yaml", ".yml")) else json.load(f)
+                flavour = (
+                    yaml.safe_load(f)
+                    if flavour.endswith((".yaml", ".yml"))
+                    else json.load(f)
+                )
         guess = CoordinateGuesser.from_flavour(ds, flavour)
         skip: set[str] = set()
 
@@ -173,14 +194,17 @@ class CustomFieldList(XarrayFieldList):
                     c.is_dim = False
                 coordinates.append(c)
             variables.append(
-                CustomVariable(ds=ds,
-                               var=v,
-                               coordinates=coordinates,
-                               grid=guess.grid(coordinates, variable=v),
-                               time=Time.from_coordinates(coordinates),
-                               metadata={},
-                               proj_string=proj_string,
-                               source=source))
+                CustomVariable(
+                    ds=ds,
+                    var=v,
+                    coordinates=coordinates,
+                    grid=guess.grid(coordinates, variable=v),
+                    time=Time.from_coordinates(coordinates),
+                    metadata={},
+                    proj_string=proj_string,
+                    source=source,
+                )
+            )
         return cls(ds, variables)
 
 
@@ -212,12 +236,16 @@ def check_indexing(data: xr.Dataset, time_dim: str) -> xr.Dataset:
             valid = (data[time_dim] + data["lead_time"]).values
             if valid.size != np.unique(valid).shape[0]:
                 raise ValueError(
-                    "Forecast data with lead_time dimension is not supported if valid_time values are not unique.")
+                    "Forecast data with lead_time dimension is not supported if valid_time values are not unique."
+                )
             # rename forecast_reference_time to time for anemoi compatibility
             # ensure that lead_time dimension is removed for proper selection below
-            data = data.assign_coords(time=((time_dim, "lead_time"),
-                                            valid)).stack(z=(time_dim, "lead_time")).swap_dims(z="time").drop_vars(
-                                                ["z", "lead_time", time_dim])
+            data = (
+                data.assign_coords(time=((time_dim, "lead_time"), valid))
+                .stack(z=(time_dim, "lead_time"))
+                .swap_dims(z="time")
+                .drop_vars(["z", "lead_time", time_dim])
+            )
             time_dim = "time"
         else:
             # wrongly indexed observation/analysis data
@@ -228,7 +256,9 @@ def check_indexing(data: xr.Dataset, time_dim: str) -> xr.Dataset:
                 data = data.drop_vars(
                     "time"
                 )  # remove time coordinate otherwise 2 coordinates are intepreted as time and anemoi complains
-            data = data.rename({"forecast_reference_time": "time"})  # simpler to combine analysis with observation data
+            data = data.rename(
+                {"forecast_reference_time": "time"}
+            )  # simpler to combine analysis with observation data
     if time_dim == "time":
         # observation data
         data["time"].attrs.update(standard_name="time")

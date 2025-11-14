@@ -152,9 +152,7 @@ def _interp_nearest_alt(
 ) -> np.ndarray:
     # Altitude-weighted nearest interpolation (vertical preference)
     ind = _grid_assignation(coords_flat, pois_coords, r_search, z_weight)
-    return data_flat[
-        ind,
-    ]
+    return data_flat[ind,]
 
 
 def _grid_assignation(
@@ -172,7 +170,9 @@ def _grid_assignation(
     return ind_nn[np.arange(ind_nn.shape[0]), np.argmin(dist_weighted, axis=1)]
 
 
-def _interp_nearest(coords_flat: np.ndarray, data_flat: np.ndarray, pois_coords: np.ndarray) -> np.ndarray:
+def _interp_nearest(
+    coords_flat: np.ndarray, data_flat: np.ndarray, pois_coords: np.ndarray
+) -> np.ndarray:
     # Plain nearest neighbor
     _, ind_nn = _nn_lookup(coords_flat, pois_coords, 1)
     return data_flat[ind_nn]
@@ -190,9 +190,7 @@ def _interp_idw(
     dist_weight = _compute_dist_weight(dist_nn, weight_power, data_flat.dtype)
     ndim_trail = data_flat.ndim - 1
     return np.sum(
-        data_flat[
-            ind_nn,
-        ] * dist_weight.reshape(dist_weight.shape + (1, ) * ndim_trail),
+        data_flat[ind_nn,] * dist_weight.reshape(dist_weight.shape + (1,) * ndim_trail),
         axis=1,
     )
 
@@ -210,14 +208,16 @@ def interp2grid(
     # Grid-to-grid interpolation dispatcher
     def _array2ds(data_arr: xr.DataArray) -> xr.Dataset:
         da = xr.DataArray(
-            interp_data.reshape((dst_grid.sizes[dst_spatial_dims[0]], dst_grid.sizes[dst_spatial_dims[1]]) +
-                                data_arr.shape[len(src_spatial_dims):]),
-            dims=dst_spatial_dims + data_arr.dims[len(src_spatial_dims):],
+            interp_data.reshape(
+                (
+                    dst_grid.sizes[dst_spatial_dims[0]],
+                    dst_grid.sizes[dst_spatial_dims[1]],
+                )
+                + data_arr.shape[len(src_spatial_dims) :]
+            ),
+            dims=dst_spatial_dims + data_arr.dims[len(src_spatial_dims) :],
             coords={
-                **data_arr.isel({
-                    dim: 0
-                    for dim in src_spatial_dims
-                }, drop=True).coords,
+                **data_arr.isel({dim: 0 for dim in src_spatial_dims}, drop=True).coords,
                 **dst_grid.coords,
             },
             attrs=_combine_attrs(data_arr.attrs, dst_grid.attrs),
@@ -229,8 +229,11 @@ def interp2grid(
     data = _set_grid_mapping(data)
     dst_grid = _set_grid_mapping(dst_grid)
     dst_grid = dst_grid.drop_dims(set(dst_grid.dims) - set(dst_spatial_dims))
-    cond_reg = (method in ("nearest", "linear") and len(src_spatial_dims) > 1
-                and set(src_spatial_dims).issubset(data.coords))
+    cond_reg = (
+        method in ("nearest", "linear")
+        and len(src_spatial_dims) > 1
+        and set(src_spatial_dims).issubset(data.coords)
+    )
     if try_reg and cond_reg:
         return _interp_grid_regular(
             data,
@@ -240,7 +243,9 @@ def interp2grid(
             method,  # type: ignore[arg-type]
         )
     dst_grid = dst_grid.transpose(*dst_spatial_dims)
-    data = _slice_coarsen(data, dst_grid, method, src_spatial_dims, dst_spatial_dims, **kwargs)
+    data = _slice_coarsen(
+        data, dst_grid, method, src_spatial_dims, dst_spatial_dims, **kwargs
+    )
     data_arr, vars_attrs = _ds_to_da(data)  # type: ignore[assignment]
     data_arr = data_arr.transpose(*src_spatial_dims, ...)
     coords_flat, data_flat, dst_coords_flat = _flatten_concat_grids(
@@ -251,7 +256,9 @@ def interp2grid(
         method,  # type: ignore[arg-type]
     )
     if method in INTERP_FUNC:
-        interp_data = INTERP_FUNC[method](coords_flat, data_flat, dst_coords_flat, **kwargs)  # type: ignore[index]
+        interp_data = INTERP_FUNC[method](
+            coords_flat, data_flat, dst_coords_flat, **kwargs
+        )  # type: ignore[index]
     elif method in ("linear", "linear_3D", "cubic"):
         interp_data = griddata(
             coords_flat,
@@ -273,10 +280,16 @@ def _interp_grid_regular(
 ) -> xr.Dataset:
     # Fast path for regular→regular (optional coarsen + xarray.interp)
     def _cond_dst_1d() -> bool:
-        data_trail_size = prod(size for dim, size in data.sizes.items() if dim not in src_spatial_dims)
+        data_trail_size = prod(
+            size for dim, size in data.sizes.items() if dim not in src_spatial_dims
+        )
         dst_sizes = dst_grid.sizes
-        dim_ratio = (dst_sizes[dst_spatial_dims[1]] * dst_sizes[dst_spatial_dims[0]]) / data_trail_size
-        return (dim_ratio > 2000 or method == "linear") and set(dst_spatial_dims).issubset(dst_grid.coords)
+        dim_ratio = (
+            dst_sizes[dst_spatial_dims[1]] * dst_sizes[dst_spatial_dims[0]]
+        ) / data_trail_size
+        return (dim_ratio > 2000 or method == "linear") and set(
+            dst_spatial_dims
+        ).issubset(dst_grid.coords)
 
     def _reproject_dst_2d() -> tuple[xr.DataArray, xr.DataArray]:
         x_vals = dst_grid[dst_coords_crs[1]].values
@@ -284,10 +297,12 @@ def _interp_grid_regular(
         if x_vals.ndim == 1:
             x_vals, y_vals = np.meshgrid(x_vals, y_vals)
         x_vals, y_vals = _reproject_grid(x_vals, y_vals, dst_coords_crs[2], src_crs)
-        return xr.DataArray(x_vals, dims=dst_spatial_dims), xr.DataArray(y_vals, dims=dst_spatial_dims)
+        return xr.DataArray(x_vals, dims=dst_spatial_dims), xr.DataArray(
+            y_vals, dims=dst_spatial_dims
+        )
 
     def _coarsen_interp() -> xr.Dataset:
-        src_coords_crs = src_spatial_dims + (src_crs, )
+        src_coords_crs = src_spatial_dims + (src_crs,)
         rx, ry = _get_coarsen_ratio(
             data,
             src_spatial_dims,
@@ -298,7 +313,11 @@ def _interp_grid_regular(
         )
         interp_data = data
         if (rx > 1) or (ry > 1):
-            specs = {d: r for d, r in ((src_spatial_dims[0], ry), (src_spatial_dims[1], rx)) if r > 1}
+            specs = {
+                d: r
+                for d, r in ((src_spatial_dims[0], ry), (src_spatial_dims[1], rx))
+                if r > 1
+            }
             interp_data = interp_data.coarsen(specs, boundary="trim").mean(skipna=False)  # type: ignore[attr-defined]
         interp_data = _y_increasing(interp_data, src_spatial_dims[0])
         interp_data = interp_data.interp(
@@ -318,7 +337,7 @@ def _interp_grid_regular(
     if _cond_dst_1d():
         dst_crs = _get_grid_crs(dst_grid)
         if src_crs == dst_crs:
-            dst_coords_crs = dst_spatial_dims + (dst_crs, )
+            dst_coords_crs = dst_spatial_dims + (dst_crs,)
             x_coords = dst_grid[dst_spatial_dims[1]].drop_vars(dst_spatial_dims[1])
             y_coords = dst_grid[dst_spatial_dims[0]].drop_vars(dst_spatial_dims[0])
             return _coarsen_interp()
@@ -350,7 +369,9 @@ def _is_decreasing1d(coords: xr.DataArray) -> bool:
     return bool(np.ediff1d(coords.values[:2])[0] < 0)
 
 
-def get_latlon_coords(grid: xr.Dataset | xr.DataArray, nondim: bool = True) -> tuple[str, str] | None:
+def get_latlon_coords(
+    grid: xr.Dataset | xr.DataArray, nondim: bool = True
+) -> tuple[str, str] | None:
     coords = tuple(grid.coords)
     if nondim:
         coords = tuple(set(coords) - set(grid.dims))
@@ -380,16 +401,24 @@ def get_coords_name_crs(
     raise ValueError("Missing spatial coordinates")
 
 
-def _get_latlon(grid: xr.Dataset | xr.DataArray, dim_or_coord: tuple[str, ...]) -> tuple[str, str] | None:
+def _get_latlon(
+    grid: xr.Dataset | xr.DataArray, dim_or_coord: tuple[str, ...]
+) -> tuple[str, str] | None:
     for lat, lon in LATLON:
         if lat in dim_or_coord and lon in dim_or_coord:
             return lat, lon
     latlon: list[str | None] = [None, None]
     for name in dim_or_coord:
         coord_attrs = grid[name].attrs
-        if (coord_attrs.get("standard_name", "") == "latitude" or coord_attrs.get("long_name", "") == "latitude"):
+        if (
+            coord_attrs.get("standard_name", "") == "latitude"
+            or coord_attrs.get("long_name", "") == "latitude"
+        ):
             latlon[0] = name
-        elif (coord_attrs.get("standard_name", "") == "longitude" or coord_attrs.get("long_name", "") == "longitude"):
+        elif (
+            coord_attrs.get("standard_name", "") == "longitude"
+            or coord_attrs.get("long_name", "") == "longitude"
+        ):
             latlon[1] = name
 
         if None not in latlon:
@@ -415,9 +444,11 @@ def _reproject(
     y_coords: NDArray[np.floating] | list[float] | tuple[float, ...],
     src_crs: CRS | str,
     dst_crs: CRS | str,
-) -> (tuple[NDArray[np.float64], NDArray[np.float64]]
-      | tuple[list[float], list[float]]
-      | tuple[tuple[float, ...], tuple[float, ...]]):
+) -> (
+    tuple[NDArray[np.float64], NDArray[np.float64]]
+    | tuple[list[float], list[float]]
+    | tuple[tuple[float, ...], tuple[float, ...]]
+):
     transformer = Transformer.from_crs(src_crs, dst_crs, always_xy=True)
     return transformer.transform(x_coords, y_coords)
 
@@ -425,20 +456,21 @@ def _reproject(
 def _get_spatial_dims(grid: xr.Dataset | xr.DataArray) -> tuple[str, ...]:
     flat_dim = _get_flat_dim(grid)
     if flat_dim is not None:
-        return (flat_dim, )
+        return (flat_dim,)
 
     spatial_dims = _get_spatial(grid, tuple(grid.dims))  # type: ignore[arg-type]
 
     if None in spatial_dims:
-        raise ValueError(f"Spatial dimensions must either be one of {YX}, have CF conventions"
-                         f" attributes for arbitrary names or be one of {FLAT_DIM} in case of"
-                         " unstructured grid")
+        raise ValueError(
+            f"Spatial dimensions must either be one of {YX}, have CF conventions"
+            f" attributes for arbitrary names or be one of {FLAT_DIM} in case of"
+            " unstructured grid"
+        )
 
     return spatial_dims  # type: ignore[return-value]
 
 
 def _set_grid_mapping(ds: xr.Dataset) -> xr.Dataset:
-
     def serializable_mapping() -> dict[str, Any]:
         return {
             key: float(value) if isinstance(value, np.floating) else value
@@ -512,8 +544,10 @@ def _get_grid_crs(grid: xr.Dataset | xr.DataArray) -> CRS:
     if _get_latlon_dims(grid) is not None:
         return CRS.from_string("EPSG:4326")
 
-    raise ValueError("The dataset must have a grid_mapping or crs attribute or have latitude"
-                     " and longitude dimensions")
+    raise ValueError(
+        "The dataset must have a grid_mapping or crs attribute or have latitude"
+        " and longitude dimensions"
+    )
 
 
 def _parse_grid_mapping(grid_mapping: str | dict[str, Any]) -> CRS:
@@ -525,7 +559,9 @@ def _parse_grid_mapping(grid_mapping: str | dict[str, Any]) -> CRS:
     return CRS.from_cf(grid_mapping)  # type: ignore[arg-type]
 
 
-def _get_spatial(grid: xr.Dataset | xr.DataArray, dim_or_coord: tuple[str, ...]) -> tuple[str | None, str | None]:
+def _get_spatial(
+    grid: xr.Dataset | xr.DataArray, dim_or_coord: tuple[str, ...]
+) -> tuple[str | None, str | None]:
     for y, x in YX:
         if y in dim_or_coord and x in dim_or_coord:
             return y, x
@@ -534,11 +570,15 @@ def _get_spatial(grid: xr.Dataset | xr.DataArray, dim_or_coord: tuple[str, ...])
     spatial: list[str | None] = [None, None]
     for name in dim_or_coord:
         attrs = grid[name].attrs
-        if ((attrs.get("axis", "").upper() == "Y") or
-            (attrs.get("standard_name", "").lower() in ("latitude", "grid_latitude", "projection_y_coordinate"))):
+        if (attrs.get("axis", "").upper() == "Y") or (
+            attrs.get("standard_name", "").lower()
+            in ("latitude", "grid_latitude", "projection_y_coordinate")
+        ):
             spatial[0] = name
-        elif ((attrs.get("axis", "").upper() == "X") or
-              (attrs.get("standard_name", "").lower() in ("longitude", "grid_longitude", "projection_x_coordinate"))):
+        elif (attrs.get("axis", "").upper() == "X") or (
+            attrs.get("standard_name", "").lower()
+            in ("longitude", "grid_longitude", "projection_x_coordinate")
+        ):
             spatial[1] = name
 
         if None not in spatial:
@@ -552,13 +592,17 @@ def _get_spatial_coords(grid: xr.Dataset | xr.DataArray) -> tuple[str, str]:
     spatial_coords = _get_spatial(grid, notdim_coords)  # type: ignore[arg-type]
 
     if None in spatial_coords:
-        raise ValueError("Could not find non-dimension spatial coordinates. Must be one of "
-                         f"{YX} or have CF conventions attributes for arbitrary names")
+        raise ValueError(
+            "Could not find non-dimension spatial coordinates. Must be one of "
+            f"{YX} or have CF conventions attributes for arbitrary names"
+        )
 
     return spatial_coords  # type: ignore[return-value]
 
 
-def _get_latlon_coords(grid: xr.Dataset | xr.DataArray, nondim: bool = True) -> tuple[str, str] | None:
+def _get_latlon_coords(
+    grid: xr.Dataset | xr.DataArray, nondim: bool = True
+) -> tuple[str, str] | None:
     coords = tuple(grid.coords)
     if nondim:
         coords = tuple(set(coords) - set(grid.dims))
@@ -575,9 +619,15 @@ def _get_latlon(
     latlon: list[str | None] = [None, None]
     for name in dim_or_coord:
         coord_attrs = grid[name].attrs
-        if (coord_attrs.get("standard_name", "") == "latitude" or coord_attrs.get("long_name", "") == "latitude"):
+        if (
+            coord_attrs.get("standard_name", "") == "latitude"
+            or coord_attrs.get("long_name", "") == "latitude"
+        ):
             latlon[0] = name
-        elif (coord_attrs.get("standard_name", "") == "longitude" or coord_attrs.get("long_name", "") == "longitude"):
+        elif (
+            coord_attrs.get("standard_name", "") == "longitude"
+            or coord_attrs.get("long_name", "") == "longitude"
+        ):
             latlon[1] = name
 
         if None not in latlon:
@@ -596,20 +646,26 @@ def _get_latlon_dims(grid: xr.Dataset | xr.DataArray) -> tuple[str, str] | None:
 # -----------------------------------------------------------------------------
 # Dataset / DataArray conversion helpers
 # -----------------------------------------------------------------------------
-def _ds_to_da(ds: xr.Dataset) -> tuple[xr.DataArray, dict[Hashable, dict[Hashable, Any]]]:
+def _ds_to_da(
+    ds: xr.Dataset,
+) -> tuple[xr.DataArray, dict[Hashable, dict[Hashable, Any]]]:
     vars_attrs = {varname: da.attrs for varname, da in ds.data_vars.items()}
     da = ds.to_array()
     return da, vars_attrs
 
 
-def _da_to_ds(da: xr.DataArray, vars_attrs: dict[Hashable, dict[Hashable, Any]]) -> xr.Dataset:
+def _da_to_ds(
+    da: xr.DataArray, vars_attrs: dict[Hashable, dict[Hashable, Any]]
+) -> xr.Dataset:
     ds = da.to_dataset("variable")
     _update_vars_attrs(ds, vars_attrs)
 
     return ds
 
 
-def _update_vars_attrs(ds: xr.Dataset, vars_attrs: dict[Hashable, dict[Hashable, Any]]) -> None:
+def _update_vars_attrs(
+    ds: xr.Dataset, vars_attrs: dict[Hashable, dict[Hashable, Any]]
+) -> None:
     for varname, attributes in vars_attrs.items():
         ds[varname].attrs.update(attributes)
 
@@ -625,7 +681,6 @@ def _slice_coarsen(
     dst_spatial_dims: Optional[tuple[str, ...]] = None,
     **kwargs: Any,
 ) -> xr.Dataset:
-
     def extra_buffer(ratio: int) -> int:
         if buffer == 1:
             return ceil(ratio / 2)
@@ -651,8 +706,12 @@ def _slice_coarsen(
             x_coords, y_coords = np.meshgrid(x_coords, y_coords)
 
         # only keep the outer rectangle
-        x_coords = np.append(x_coords[[0, -1], :].ravel(), x_coords[1:-1, [0, -1]].ravel())
-        y_coords = np.append(y_coords[[0, -1], :].ravel(), y_coords[1:-1, [0, -1]].ravel())
+        x_coords = np.append(
+            x_coords[[0, -1], :].ravel(), x_coords[1:-1, [0, -1]].ravel()
+        )
+        y_coords = np.append(
+            y_coords[[0, -1], :].ravel(), y_coords[1:-1, [0, -1]].ravel()
+        )
 
         # Reproject destination coordinates in the grid CRS
         x_coords, y_coords = _reproject(x_coords, y_coords, dst_grid_crs, grid_crs)
@@ -660,7 +719,9 @@ def _slice_coarsen(
     yx_bnds = ((y_coords.min(), y_coords.max()), (x_coords.min(), x_coords.max()))
 
     buffer = _get_buffer(method, **kwargs)
-    sub_domain, res = _get_sub_domain(data, spatial_dims, coords_crs[:2], yx_bnds, buffer)
+    sub_domain, res = _get_sub_domain(
+        data, spatial_dims, coords_crs[:2], yx_bnds, buffer
+    )
     data_sub = data.isel(sub_domain)
 
     # coarsen input dataset if needed (downsampling)
@@ -675,8 +736,10 @@ def _slice_coarsen(
     )
     if (res_ratio_x > 1) or (res_ratio_y > 1):
         if len(spatial_dims) == 1:
-            logger.warning("Unstructured grid cannot be coarsened. Interpolation to a lower"
-                           " resolution grid may create aliasing artifacts.")
+            logger.warning(
+                "Unstructured grid cannot be coarsened. Interpolation to a lower"
+                " resolution grid may create aliasing artifacts."
+            )
             return data_sub
 
         coarsen_specs = {
@@ -684,18 +747,23 @@ def _slice_coarsen(
             for dim, ratio in (
                 (spatial_dims[1], res_ratio_x),
                 (spatial_dims[0], res_ratio_y),
-            ) if ratio > 1
-        }
-        sub_domain.update({
-            dim:
-            slice(  # type: ignore[misc]
-                max(sub_domain[dim].start - extra_buffer(ratio), 0),  # type: ignore[union-attr]
-                sub_domain[dim].stop + extra_buffer(ratio),  # type: ignore[union-attr]
             )
-            for dim, ratio in coarsen_specs.items()
-        })
-        return (data.isel(sub_domain)  # type: ignore[attr-defined]
-                .coarsen(coarsen_specs, boundary="trim").mean(skipna=False))
+            if ratio > 1
+        }
+        sub_domain.update(
+            {
+                dim: slice(  # type: ignore[misc]
+                    max(sub_domain[dim].start - extra_buffer(ratio), 0),  # type: ignore[union-attr]
+                    sub_domain[dim].stop + extra_buffer(ratio),  # type: ignore[union-attr]
+                )
+                for dim, ratio in coarsen_specs.items()
+            }
+        )
+        return (
+            data.isel(sub_domain)  # type: ignore[attr-defined]
+            .coarsen(coarsen_specs, boundary="trim")
+            .mean(skipna=False)
+        )
 
     return data_sub
 
@@ -718,13 +786,18 @@ def _get_sub_domain(
     yx_bnds: tuple[tuple[float, float], tuple[float, float]],
     buffer: int,
 ) -> tuple[dict[str, slice], None] | tuple[dict[str, NDArray], float]:
-
     def get_cond_xy(buffer_crs: float) -> NDArray[np.bool_]:
-        cond_x = (data[grid_x].values > x_bnds[0] - buffer_crs) & (data[grid_x].values < x_bnds[1] + buffer_crs)
-        cond_y = (data[grid_y].values > y_bnds[0] - buffer_crs) & (data[grid_y].values < y_bnds[1] + buffer_crs)
+        cond_x = (data[grid_x].values > x_bnds[0] - buffer_crs) & (
+            data[grid_x].values < x_bnds[1] + buffer_crs
+        )
+        cond_y = (data[grid_y].values > y_bnds[0] - buffer_crs) & (
+            data[grid_y].values < y_bnds[1] + buffer_crs
+        )
         return cond_x & cond_y
 
-    def get_ind_startend(coordname: str, dim: str, bnds: tuple[float, float]) -> tuple[int, int]:
+    def get_ind_startend(
+        coordname: str, dim: str, bnds: tuple[float, float]
+    ) -> tuple[int, int]:
         coords = data[coordname]
         dim_size = data.sizes[dim]
 
@@ -740,7 +813,9 @@ def _get_sub_domain(
         end_mask = coords > bnds[1]
         id_end = (
             end_mask.argmax(dim).values.max().item()  # type: ignore[union-attr]
-            if end_mask.values.any() else dim_size)
+            if end_mask.values.any()
+            else dim_size
+        )
 
         if bool_decrease:
             start_ori = id_start
@@ -778,7 +853,6 @@ def _get_sub_domain(
 
 
 def _get_flat_grid_res(coords_x: xr.DataArray, coords_y: xr.DataArray) -> float:
-
     def dcoords(coords: xr.DataArray) -> float:
         return np.median(abs(np.diff(coords.values)))
 
@@ -805,7 +879,9 @@ def _get_coarsen_ratio(
         res_src_x = center_src_x.diff(spatial_dims[1]).values.mean()
         res_src_y = center_src_y.diff(spatial_dims[0]).values.mean()
 
-    center_dst_x, center_dst_y = _center_coords(dst_grid, dst_spatial_dims, dst_coords_crs[:2])
+    center_dst_x, center_dst_y = _center_coords(
+        dst_grid, dst_spatial_dims, dst_coords_crs[:2]
+    )
     src_crs, dst_crs = coords_crs[2], dst_coords_crs[2]
     if src_crs != dst_crs:
         center_dst_x.values, center_dst_y.values = _reproject(  # type: ignore[assignment]
@@ -851,7 +927,7 @@ def _flatten_coords_crs(
     if len(spatial_dims) > 1:
         # flatten grid
         grid = grid.stack({flat_dim: spatial_dims}).transpose(flat_dim, ...)
-        spatial_dims = (flat_dim, )
+        spatial_dims = (flat_dim,)
 
     grid_y, grid_x, grid_crs = get_coords_name_crs(grid, spatial_dims)
 
@@ -884,7 +960,9 @@ def _reproject_grid_cached(
 ) -> tuple[np.ndarray, np.ndarray]:
     if dst_crs != src_crs:
         hkey = (x_coords.tobytes(), y_coords.tobytes(), x_coords.shape, dst_crs)
-        x_coords, y_coords = _reproject_grid(x_coords, y_coords, src_crs, dst_crs, hkey=hkey)
+        x_coords, y_coords = _reproject_grid(
+            x_coords, y_coords, src_crs, dst_crs, hkey=hkey
+        )
 
     return x_coords, y_coords
 
@@ -896,20 +974,29 @@ def _flatten_concat_grids(
     dst_spatial_dims: tuple[str, str],
     method: str,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-
     def _choose_crs_meters() -> CRS:
         if reproj_dst:
             if grid_crs in SWISS_CRS:
                 return grid_crs
-            return CRS.from_string(SWISS_CRS[1]) if dst_grid_crs == SWISS_CRS[1] else CRS.from_string(SWISS_CRS[0])
+            return (
+                CRS.from_string(SWISS_CRS[1])
+                if dst_grid_crs == SWISS_CRS[1]
+                else CRS.from_string(SWISS_CRS[0])
+            )
 
         if dst_grid_crs in SWISS_CRS:
             return dst_grid_crs
-        return CRS.from_string(SWISS_CRS[1]) if grid_crs == SWISS_CRS[1] else CRS.from_string(SWISS_CRS[0])
+        return (
+            CRS.from_string(SWISS_CRS[1])
+            if grid_crs == SWISS_CRS[1]
+            else CRS.from_string(SWISS_CRS[0])
+        )
 
     data, grid_y, grid_x, grid_crs = _flatten_coords_crs(data, spatial_dims)
     flat_dim = spatial_dims[0] if len(spatial_dims) == 1 else "cell"
-    dst_grid, dst_grid_y, dst_grid_x, dst_grid_crs = _flatten_coords_crs(dst_grid, dst_spatial_dims, flat_dim)
+    dst_grid, dst_grid_y, dst_grid_x, dst_grid_crs = _flatten_coords_crs(
+        dst_grid, dst_spatial_dims, flat_dim
+    )
 
     reproj_dst = dst_grid.sizes[flat_dim] <= data.sizes[flat_dim]
 
@@ -967,7 +1054,9 @@ def _flatten_concat_grids(
 # -----------------------------------------------------------------------------
 # Nearest-neighbour search and interpolation dispatch table
 # -----------------------------------------------------------------------------
-def _nn_lookup(grid_coords: np.ndarray, points: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
+def _nn_lookup(
+    grid_coords: np.ndarray, points: np.ndarray, k: int
+) -> tuple[np.ndarray, np.ndarray]:
     tree = KDTree(grid_coords)
     dd, ii = tree.query(points, k, workers=-1)
 
