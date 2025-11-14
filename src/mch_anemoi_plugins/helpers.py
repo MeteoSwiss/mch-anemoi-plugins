@@ -12,7 +12,13 @@ from pyproj import CRS
 from pyproj import Transformer
 
 
-def reproject(x_coords, y_coords, src_crs, dst_crs):
+def reproject(
+    x_coords: np.ndarray | list | tuple,
+    y_coords: np.ndarray | list | tuple,
+    src_crs: CRS | str,
+    dst_crs: CRS | str,
+):
+    # Local copy to avoid circular import with interp2grid/destaggering
     transformer = Transformer.from_crs(src_crs, dst_crs, always_xy=True)
     return transformer.transform(x_coords, y_coords)
 
@@ -28,16 +34,16 @@ def replace(instance, **kwargs):
 
 
 def assign_lonlat(array: xr.DataArray, crs: str) -> xr.DataArray:
-    xv, yv = np.meshgrid(array.x.values, array.y.values)
-    lon, lat = reproject(xv, yv, crs, CRS.from_user_input("epsg:4326"))
-    geodims = [k for k in array.dims if k in ["x", "y", "station", "cell"]]
+    # Supports (x,y) or (y,x); falls back to reprojection if CRS not WGS84.
+    geodims = [d for d in array.dims if d in ("x", "y", "station", "cell")]
     if len(geodims) < 2 and crs == "epsg:4326" and "x" in array.coords:
-        # indexed by point and CRS WGS84: just rename coords
         return array.assign_coords(longitude=array.x.values, latitude=array.y.values)
     if geodims == ["y", "x"]:
-        return array.assign_coords(
-            longitude=(("y", "x"), lon), latitude=(("y", "x"), lat)
-        )
+        xv, yv = np.meshgrid(array.x.values, array.y.values)
+        lon, lat = (xv, yv) if crs == "epsg:4326" else reproject(xv, yv, crs, CRS.from_user_input("epsg:4326"))
+        return array.assign_coords(longitude=(("y", "x"), lon), latitude=(("y", "x"), lat))
+    xv, yv = np.meshgrid(array.x.values, array.y.values, indexing="ij")
+    lon, lat = reproject(xv, yv, crs, CRS.from_user_input("epsg:4326")) if crs != "epsg:4326" else (xv, yv)
     return array.assign_coords(longitude=(("x", "y"), lon), latitude=(("x", "y"), lat))
 
 
@@ -64,9 +70,7 @@ class FieldListDataSource(data_source.DataSource):
         yield from self.fieldlist.sel(**request)
 
 
-def meteodatalab_wrapper(
-    func: Callable[..., dict[str, xr.DataArray]],
-) -> Callable[[ekd.FieldList], ekd.FieldList]:
+def meteodatalab_wrapper(func: Callable[..., dict[str, xr.DataArray]], ) -> Callable[[ekd.FieldList], ekd.FieldList]:
     """Decorator to wrap a function that processes an ekd.FieldList."""
 
     def inner(fieldlist: ekd.FieldList) -> ekd.FieldList:
@@ -94,9 +98,8 @@ def _meteodalab_ds_to_fieldlist(ds: dict[str, xr.DataArray]) -> ekd.FieldList:
         for da in ds.values():
             if "z" in da.dims and da["z"].size == 1 and bool(da["z"].values is None):
                 da = da.squeeze("z", drop=True)
-            grib_decoder.save(
-                da, buffer, bits_per_value=32
-            )  # TODO: find out why we need 32 and 16 leads to precision loss
+            grib_decoder.save(da, buffer,
+                              bits_per_value=32)  # TODO: find out why we need 32 and 16 leads to precision loss
 
         # reset the buffer position to the beginning
         buffer.seek(0)
